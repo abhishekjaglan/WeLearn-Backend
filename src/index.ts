@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import { connectDB } from './config/database';
+import logger from './utils/logger';
 
 dotenv.config();
 
@@ -21,5 +22,5 @@ app.listen(PORT, (err) => {
   if (err) {
     console.error(`Error starting backend server!`);
   }
-  console.log(`WeLearn backend server running on port ${PORT}!`);
+  logger.info(`WeLearn backend server running on port ${PORT}!`);
 });
