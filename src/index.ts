@@ -2,6 +2,9 @@ import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import { connectDB } from './config/database';
 import logger from './utils/logger';
+import helmet from 'helmet';
+import { errorMiddleware } from './middleware/error.middleware';
+import router from './route';
 
 dotenv.config();
 
@@ -9,6 +12,7 @@ const app = express();
 const PORT = process.env.PORT || 3005;
 
 app.use(express.json());
+app.use(helmet());
 await connectDB();
 
 app.get('/health', async (req: Request, res: Response) => {
@@ -17,6 +21,10 @@ app.get('/health', async (req: Request, res: Response) => {
     message: 'WeLearn Backend is running',
   });
 });
+
+app.use('/api', router);
+
+app.use(errorMiddleware);
 
 app.listen(PORT, (err) => {
   if (err) {

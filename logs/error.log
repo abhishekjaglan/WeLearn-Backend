@@ -1,0 +1,4 @@
+{"level":"error","message":"User already exists","timestamp":"2025-04-08T19:42:28.865Z"}
+{"level":"error","message":"User already exists","timestamp":"2025-04-08T19:45:21.488Z"}
+{"0":{"code":"invalid_type","expected":"string","message":"Required","path":["firstName"],"received":"undefined"},"1":{"code":"invalid_type","expected":"string","message":"Required","path":["lastName"],"received":"undefined"},"level":"error","message":"Validation error:","timestamp":"2025-04-08T19:59:41.205Z"}
+{"0":{"code":"invalid_type","expected":"string","message":"Required","path":["firstName"],"received":"undefined"},"1":{"code":"invalid_type","expected":"string","message":"Required","path":["lastName"],"received":"undefined"},"level":"error","message":"Validation error:","timestamp":"2025-04-08T20:00:04.417Z"}

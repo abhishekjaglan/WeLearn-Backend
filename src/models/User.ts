@@ -1,6 +1,11 @@
 import { DataTypes, Model, Sequelize } from "sequelize";
+import { UUIDTypes } from "uuid";
 
 export default class User extends Model {
+    declare id: UUIDTypes
+    declare firstName: String
+    declare lastName: String
+    
     static initModel(sequelize:Sequelize){
         User.init(
             {
