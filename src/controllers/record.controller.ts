@@ -60,7 +60,11 @@ class RecordController {
 
     async getRecordsByUser(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
         try {
-            const userId = req.params.userId;
+            const userId = req.params.userId as string;
+            logger.info(`User ID: ${userId}`);
+            if (!userId) {
+                throw new AppError("User ID is required", 400);
+            }
             const records = await this.recordService.getRecordsByUser(userId);
             return res.status(200).json({
                 data: records,

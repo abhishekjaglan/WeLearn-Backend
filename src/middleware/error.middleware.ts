@@ -1,11 +1,12 @@
-import { Request, Response } from "express"
+import { NextFunction, Request, Response } from "express"
 import { AppError, DatabaseError, ValidationError } from "../types/error.type"
 import logger from "../utils/logger"
 
 export const errorMiddleware = (
     err: Error,
     req: Request,
-    res: Response
+    res: Response,
+    next: NextFunction
 ) => {
     if(err instanceof AppError){
         logger.error(err.message, {status: err.status});
