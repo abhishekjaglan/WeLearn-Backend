@@ -1,7 +1,14 @@
 
 import { DataTypes, Model, Sequelize } from "sequelize";
+import { UUIDTypes } from "uuid";
 
 export default class Record extends Model {
+    declare id: UUIDTypes;
+    declare user: UUIDTypes;
+    declare mediaType: String;
+    declare mediaName: String;
+    declare createdAt: Date;
+
     static initModel(sequelize:Sequelize){
         Record.init(
             {

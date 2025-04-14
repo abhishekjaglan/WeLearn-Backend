@@ -38,8 +38,8 @@ export class UserController {
     // Get a user by firstName and lastName (GET /api/user)
     async getUser(req: Request, res: Response, next: NextFunction) {
         try {
-            const validatedData = getUserSchema.parse(req.body); // Using query params for GET
-            const user = await this.userService.getUser(validatedData);
+            const userId = req.params.id;
+            const user = await this.userService.getUser(userId);
             res.status(200).json({
                 success: true,
                 data: user,
@@ -73,8 +73,8 @@ export class UserController {
     // Delete a user (DELETE /api/user)
     async deleteUser(req: Request, res: Response, next: NextFunction) {
         try {
-            const validatedData = deleteUserSchema.parse(req.body); // Using body for DELETE
-            const result = await this.userService.deleteUser(validatedData);
+            const userId = req.params.id;
+            const result = await this.userService.deleteUser(userId);
             res.status(200).json({
                 success: true,
                 message: `User deleted successfully`,

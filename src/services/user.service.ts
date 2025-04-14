@@ -1,3 +1,4 @@
+import { UUIDTypes } from "uuid";
 import User from "../models/User";
 import { AppError, DatabaseError } from "../types/error.type";
 import { CreateUser, DeleteUser, GetUser } from "../types/types";
@@ -29,7 +30,7 @@ export class UserService{
         }
 
         if(newUser){
-            logger.info(`User ${newUser} created!`);
+            logger.info(`User ${newUser.firstName} ${newUser.lastName} created!`);
         }
         
         return {
@@ -39,13 +40,13 @@ export class UserService{
         }
     }
 
-    async getUser(user: GetUser){
+    async getUser(userId: string) {
         // check if user exists
         let existingUser;
         try {
-            existingUser = await User.findOne({ where: { firstName: user.firstName, lastName: user.lastName }});
+            existingUser = await User.findOne({ where: { id: userId }});
         } catch (err: any) {
-            logger.error(`Error fetching the user: ${user}`, err);
+            logger.error(`Error fetching the user: ${userId}`, err);
             throw new DatabaseError(err.message);
         }
 
@@ -75,14 +76,14 @@ export class UserService{
         return 
     }
 
-    async deleteUser(user: DeleteUser){
+    async deleteUser(userId: string){
         
         // check if user exists
         let existingUser;
         try {
-            existingUser = await User.findOne({ where: { firstName: user.firstName, lastName: user.lastName }});
+            existingUser = await User.findOne({ where: { id: userId }});
         } catch (err: any) {
-            logger.error(`Error fetching the user: ${user}`, err);
+            logger.error(`Error fetching the user: ${userId}`, err);
             throw new DatabaseError(err.message);
         }
 
@@ -93,10 +94,10 @@ export class UserService{
 
         let deletedUser;
         try {
-            deletedUser = await User.destroy({ where: { firstName: user.firstName, lastName: user.lastName }});
+            deletedUser = await User.destroy({ where: { id: userId } });
             logger.info(`Deleted user: ${deletedUser}`);
         } catch (err: any) {
-            logger.error(`Error deleting the user: ${user}`, err);
+            logger.error(`Error deleting the user: ${userId}`, err);
             throw new DatabaseError(err.message);
         }
 

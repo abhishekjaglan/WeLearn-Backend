@@ -8,8 +8,7 @@ export const createUserSchema = z.object({
 
 // Schema for getting a user by firstName and lastName
 export const getUserSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
+  id: z.string(),
 });
 
 // Schema for deleting a user
@@ -17,3 +16,19 @@ export const deleteUserSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
 });
+
+export const createRecordSchema = z.object({
+  user: z.string().uuid("Invalid user ID"),
+  mediaType: z.string().min(1, "Media type is required"),
+  mediaName: z.string().min(1, "Media name is required"),
+});
+
+export const getRecordSchema = z.object({
+  userId: z.string().uuid("Invalid user ID"),
+  recordId: z.string().uuid("Invalid record ID"),
+});
+
+export const deleteRecordSchema = z.object({
+  userId: z.string().uuid("Invalid user ID"),
+  recordId: z.string().uuid("Invalid record ID"),
+}); 
