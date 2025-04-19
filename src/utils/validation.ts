@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DetailLevel } from '../types/summarization.types';
 
 // Schema for creating a user
 export const createUserSchema = z.object({
@@ -31,4 +32,9 @@ export const getRecordSchema = z.object({
 export const deleteRecordSchema = z.object({
   userId: z.string().uuid("Invalid user ID"),
   recordId: z.string().uuid("Invalid record ID"),
-}); 
+});
+
+export const summarizationSchema = z.object({
+  detailLevel: z.enum([DetailLevel.SHORT, DetailLevel.MEDIUM, DetailLevel.DETAILED]),
+  userId: z.string(),
+});

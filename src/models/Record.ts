@@ -3,8 +3,8 @@ import { DataTypes, Model, Sequelize } from "sequelize";
 import { UUIDTypes } from "uuid";
 
 export default class Record extends Model {
-    declare id: UUIDTypes;
-    declare user: UUIDTypes;
+    declare id: String;
+    declare user: String;
     declare mediaType: String;
     declare mediaName: String;
     declare createdAt: Date;
@@ -13,13 +13,13 @@ export default class Record extends Model {
         Record.init(
             {
               id: {
-                  type: DataTypes.UUID,
+                  type: DataTypes.STRING,
                   allowNull: false,
-                  defaultValue: DataTypes.UUIDV4,
-                  primaryKey: true
+                  primaryKey: true,
+                autoIncrement: true,
               },
               user: {
-                  type: DataTypes.UUID,
+                  type: DataTypes.STRING,
                   allowNull: false,
                 
               },

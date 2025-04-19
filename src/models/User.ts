@@ -2,7 +2,7 @@ import { DataTypes, Model, Sequelize } from "sequelize";
 import { UUIDTypes } from "uuid";
 
 export default class User extends Model {
-    declare id: UUIDTypes
+    declare id: String;
     declare firstName: String
     declare lastName: String
     
@@ -10,10 +10,10 @@ export default class User extends Model {
         User.init(
             {
               id: {
-                  type: DataTypes.UUID,
+                  type: DataTypes.STRING,
                   allowNull: false,
-                  defaultValue: DataTypes.UUIDV4,
-                  primaryKey: true
+                  primaryKey: true,
+                  autoIncrement: true,
               },
               firstName: {
                 type: DataTypes.STRING,

@@ -1,4 +1,4 @@
-import { UUIDTypes } from "uuid";
+
 
 export interface CreateUser{
     firstName: String,
