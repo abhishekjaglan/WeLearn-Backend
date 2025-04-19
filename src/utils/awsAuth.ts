@@ -31,3 +31,7 @@ export class AWSAuth {
       return this.textractClient;
     }
   }
+
+const awsClient = new AWSAuth();
+export const s3Client = AWSAuth.getS3Client();
+export const textractClient = AWSAuth.getTextractClient();
