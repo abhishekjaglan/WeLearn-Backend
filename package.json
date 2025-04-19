@@ -18,6 +18,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.787.0",
     "@aws-sdk/client-textract": "^3.787.0",
+    "@google/generative-ai": "^0.24.0",
     "@types/node": "^22.13.11",
     "axios": "^1.8.4",
     "bcrypt": "^5.1.1",
