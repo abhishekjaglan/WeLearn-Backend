@@ -23,7 +23,8 @@ services:
 
   textract-mcp:
     build:
-      context: ./src/mcp-servers/textract
+      context: .
+      dockerfile: ./src/mcp-servers/textract/Dockerfile
     environment:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
@@ -38,7 +39,8 @@ services:
 
   gemini-mcp:
     build:
-      context: ./src/mcp-servers/gemini
+      context: .
+      dockerfile: ./src/mcp-servers/gemini/Dockerfile
     environment:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       REDIS_URL: redis://redis:6379
