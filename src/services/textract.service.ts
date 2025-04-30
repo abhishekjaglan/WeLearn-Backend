@@ -1,15 +1,13 @@
 import { MCPTextractInput, MCPTextractOutput } from '../types/summarization.types';
+import { AWSAuth } from '../utils/awsAuth';
 import logger from '../utils/logger';
-import { MCPClient } from '../utils/mcp';
+import { TextractClient } from "@aws-sdk/client-textract";
 
 export class TextractService {
-  private client: MCPClient;
+  private textractClient: TextractClient;
 
   constructor() {
-    this.client = new MCPClient({
-      host: 'textract-mcp',
-      port: parseInt(process.env.MCP_TEXTRACT_PORT!),
-    });
+    this.textractClient = new AWSAuth.getTextractClient();
   }
 
   async extractText(s3Key: string, fileName: string): Promise<string> {

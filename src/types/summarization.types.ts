@@ -15,20 +15,20 @@ export interface SummarizationResponse {
   recordId: String;
 }
 
-export interface MCPTextractInput {
+export interface TextractInput {
   s3Key: string;
   fileName: string;
 }
 
-export interface MCPTextractOutput {
+export interface TextractOutput {
   text: string;
 }
 
-export interface MCPLLMInput {
+export interface LLMInput {
   text: string;
   detailLevel: DetailLevel;
 }
 
-export interface MCPLLMOutput {
+export interface LLMOutput {
   summary: string;
 }

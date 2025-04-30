@@ -1,6 +1,5 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { AWSAuth } from '../utils/awsAuth';
-import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger';
 
 export class S3Service {
@@ -11,7 +10,7 @@ export class S3Service {
   }
 
   async uploadFile(file: Express.Multer.File): Promise<string> {
-    const s3Key = `uploads/${uuidv4()}-${file.originalname}`;
+    const s3Key = `uploads/${file.originalname}-${Date.now()}`;
     await this.s3Client.send(new PutObjectCommand({
       Bucket: process.env.AWS_S3_BUCKET,
       Key: s3Key,

@@ -5,11 +5,12 @@ import logger from './utils/logger';
 import helmet from 'helmet';
 import { errorMiddleware } from './middleware/error.middleware';
 import router from './route';
+import { config } from './utils/config';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3005;
+const PORT = config.PORT;
 
 app.use(express.json());
 app.use(helmet());
