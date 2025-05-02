@@ -21,6 +21,7 @@
     "@google/generative-ai": "^0.24.0",
     "@types/node": "^22.13.11",
     "axios": "^1.8.4",
+    "bcrypt": "^5.1.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "helmet": "^8.1.0",

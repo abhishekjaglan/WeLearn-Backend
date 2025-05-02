@@ -14,23 +14,24 @@ export class S3Service {
     this.redisClient = redisClient;
   }
 
-  async uploadPdfToS3(s3Key: string): Promise<{ result: any; s3Key: string } | null> {
+  async uploadPdfToS3(hashKey: string): Promise<{ result: any } | null> {
     try {
-      if (await this.redisClient.get(s3Key)) {
-        logger.info(`Document already exists in Redis and S3: ${s3Key}`);
+      const s3cache = await this.redisClient.get(hashKey);
+      if (s3cache) {
+        logger.info(`Document already exists in Redis and S3: ${hashKey}`);
         return null;
       }
       // Create a readable stream from the PDF file
       const fileStream = fs.createReadStream('./Resume Latest.pdf');
-      // const s3Key = `uploads/${file.originalname}-${Date.now()}`;
-      const s3CacheKey = `s3:${s3Key}`;
-      await this.redisClient.set(s3CacheKey, s3Key, 3600);
-      logger.info(`uploaded file to s3: ${s3Key}`);
+      // const hashKey = `uploads/${file.originalname}-${Date.now()}`;
+      const s3CacheKey = `s3:${hashKey}`;
+      await this.redisClient.set(s3CacheKey, hashKey, 3600);
+      logger.info(`uploaded file to s3: ${hashKey}`);
       logger.info(`Document uploaded to Redis: ${s3CacheKey}`);
       // Prepare the PutObjectCommand with the file stream
       const command = new PutObjectCommand({
         Bucket: config.AWS_S3_BUCKET!,
-        Key: s3Key, // Desired key (filename) in S3
+        Key: hashKey, // Desired key (filename) in S3
         Body: fileStream,
         ContentType: 'application/pdf', // Set correct MIME type for PDF
       });
@@ -44,7 +45,7 @@ export class S3Service {
         console.error('Error reading file stream:', error);
       });
 
-      return { result, s3Key };
+      return { result };
     } catch (error) {
       console.error('Error uploading PDF to S3:', error);
       throw error;
@@ -52,15 +53,15 @@ export class S3Service {
   };
 
   async uploadFile(file: Express.Multer.File): Promise<string> {
-    const s3Key = `uploads/${file.originalname}-${Date.now()}`;
+    const hashKey = `uploads/${file.originalname}-${Date.now()}`;
     const command = new PutObjectCommand({
       Bucket: config.AWS_S3_BUCKET,
-      Key: s3Key,
+      Key: hashKey,
       Body: file.buffer,
       ContentType: file.mimetype,
     })
     const response = await this.s3Client.send(command);
-    logger.info(`uploaded file ${file.originalname} to s3: ${s3Key}`);
-    return s3Key;
+    logger.info(`uploaded file ${file.originalname} to s3: ${hashKey}`);
+    return hashKey;
   }
 }

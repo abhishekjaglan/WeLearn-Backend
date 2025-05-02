@@ -16,4 +16,6 @@ export const config = {
     //redis
     REDIS_HOST: process.env.REDIS_HOST || 'localhost',
     REDIS_PORT: process.env.REDIS_PORT || 6379,
+    // bcrypt
+    BCRYPT_SALT_ROUNDS: parseInt(process.env.BCRYPT_SALT_ROUNDS || '10'),
 }

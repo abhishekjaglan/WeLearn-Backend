@@ -25,30 +25,31 @@ export class TextractService {
   //   return output.text;
   // }
 
-  async textract(s3Key: string): Promise<{ Blocks: any[] }> {
+  async textract(hashKey: string): Promise<{ Blocks: any[] }> {
     const detectDocumentTextCommand = new DetectDocumentTextCommand({
       Document: {
         S3Object: {
           Bucket: config.AWS_S3_BUCKET!,
-          Name: s3Key,
+          Name: hashKey,
         }
       }
     });
     const response = await this.textractClient.send(detectDocumentTextCommand);
-    logger.info(`Document text detected for: ${s3Key}`);
+    logger.info(`Document text detected for: ${hashKey}`);
     logger.info(`response.Blocks: ${JSON.stringify(response.Blocks)}`);
     return { Blocks: response.Blocks || [] };
   }
 
-  async stitchTextFromBlocks(blocks: any, s3Key: string): Promise<string> {
-
-    if (await this.redisClient.get(s3Key)) {
-      logger.info(`Document already exists in Redis and S3: ${s3Key}`);
-      return (await this.redisClient.get(s3Key)) || 'No Value Found';
+  async stitchTextFromBlocks(blocks: any, hashKey: string): Promise<string> {
+    // Check if the document already exists in Redis
+    const extractedCache = await this.redisClient.get(hashKey);
+    if (extractedCache) {
+      logger.info(`Extracted and stitched text already exists in Redis for: ${hashKey}`);
+      return extractedCache;
     }
 
     if (!blocks || blocks.length === 0) {
-      logger.error(`No blocks found for ${s3Key}`);
+      logger.error(`No blocks found for ${hashKey}`);
       return 'No Bocks Found';
     }
     // Step 1: Collect LINE blocks and their child WORD block IDs
@@ -88,9 +89,9 @@ export class TextractService {
     const text = lineText + (lineText && wordText ? '\n' : '') + wordText;
     logger.info(`Stitched text: ${text}`);
 
-    const cacheKey = `textract:${s3Key}`;
+    const cacheKey = `textract:${hashKey}`;
     await this.redisClient.set(cacheKey, text, 3600);
-    logger.info(`cached extracted text for ${s3Key}`);
+    logger.info(`cached extracted text for ${hashKey} in Redis`);
 
     // await this.s3Client.send(new DeleteObjectCommand({
     //   Bucket: config.AWS_S3_BUCKET!,
