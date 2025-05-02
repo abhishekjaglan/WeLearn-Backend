@@ -20,3 +20,15 @@ export interface CreateRecord{
     mediaType: String,
     mediaName: String,
 }
+
+export interface Block {
+        BlockType: 'LINE' | 'WORD' | string;
+        Text?: string;
+        Id?: string;
+        Relationships?: Relationship[];
+    }
+
+export interface Relationship {
+        Type: 'CHILD' | string;
+        Ids?: string[];
+    }

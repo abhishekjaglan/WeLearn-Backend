@@ -1,11 +1,12 @@
 import Redis from "ioredis";
 import logger from "./logger";
+import { config } from "./config";
 
 export class RedisClient {
     private client: Redis;
 
     constructor() {
-        this.client = new Redis(config.REDIS_PORT, config.REDIS_HOST);
+        this.client = new Redis(Number(config.REDIS_PORT), String(config.REDIS_HOST));
         this.client.on('connect', () => { logger.info('Connected to Redis'); });
         this.client.on('error', (err) => { logger.error(`Redis error: ${err}`); });
     }
@@ -14,7 +15,7 @@ export class RedisClient {
         return this.client.get(key);
     }
 
-    async set(key: string, value: string, expirySeconds: number): Promise<"OK"> {
+    async set(key: string, value: string, expirySeconds: number): Promise<void> {
         await this.client.setex(key, expirySeconds, value);
     }
 }
