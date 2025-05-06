@@ -1,9 +1,9 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { AWSAuth } from '../utils/awsAuth';
-import logger from '../utils/logger';
+import { AWSAuth } from '../utils/awsAuth.js';
+import logger from '../utils/logger.js';
 import fs from 'fs';
-import { config } from '../utils/config';
-import { redisClient, RedisClient } from '../utils/redisClient';
+import { config } from '../utils/config.js';
+import { redisClient, RedisClient } from '../utils/redisClient.js';
 
 export class S3Service {
   private s3Client: S3Client;
@@ -16,7 +16,8 @@ export class S3Service {
 
   async uploadPdfToS3(hashKey: string): Promise<{ result: any } | null> {
     try {
-      const s3cache = await this.redisClient.get(hashKey);
+      const s3CacheKey = `s3:${hashKey}`;
+      const s3cache = await this.redisClient.get(s3CacheKey);
       if (s3cache) {
         logger.info(`Document already exists in Redis and S3: ${hashKey}`);
         return null;
@@ -24,7 +25,6 @@ export class S3Service {
       // Create a readable stream from the PDF file
       const fileStream = fs.createReadStream('./Resume Latest.pdf');
       // const hashKey = `uploads/${file.originalname}-${Date.now()}`;
-      const s3CacheKey = `s3:${hashKey}`;
       await this.redisClient.set(s3CacheKey, hashKey, 3600);
       logger.info(`uploaded file to s3: ${hashKey}`);
       logger.info(`Document uploaded to Redis: ${s3CacheKey}`);

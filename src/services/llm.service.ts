@@ -1,8 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { DetailLevel } from '../types/summarization.types';
-import logger from '../utils/logger';
-import { redisClient, RedisClient } from '../utils/redisClient';
-import { config } from '../utils/config';
+import { DetailLevel } from '../types/summarization.types.js';
+import logger from '../utils/logger.js';
+import { redisClient, RedisClient } from '../utils/redisClient.js';
+import { config } from '../utils/config.js';
 
 export class LLMService {
   private redisClient: RedisClient;
@@ -40,7 +40,7 @@ export class LLMService {
 
     const summary = result.response.text();
     await this.redisClient.set(cacheKey, summary, 3600);  // Cache for 1 hour
-    logger.info(`generated summary size for ${detailLevel}: ${summary.length} characters`);
+    logger.info(`generated summary for detail level ${detailLevel}: ${summary.length} characters`);
     return { summary: summary };
   }
 }

@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { summarizationController } from "../controllers/summarization.controller";
-import { upload } from "../middleware/multer.middleware";
+import { summarizationController } from "../controllers/summarization.controller.js";
+import { upload } from "../middleware/multer.middleware.js";
 
 const summarizeRouter = Router();
 

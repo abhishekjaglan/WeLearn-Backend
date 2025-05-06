@@ -1,11 +1,10 @@
-import { UUIDTypes } from "uuid";
-import User from "../models/User";
-import { AppError, DatabaseError } from "../types/error.type";
-import { CreateUser, DeleteUser, GetUser } from "../types/types";
-import logger from "../utils/logger";
+import User from "../models/User.js";
+import { AppError, DatabaseError } from "../types/error.type.js";
+import { CreateUser, DeleteUser, GetUser } from "../types/types.js";
+import logger from "../utils/logger.js";
 
-export class UserService{
-    
+export class UserService {
+
     async createUser(user: CreateUser) {
         // check if user exists
         let existingUser;
@@ -16,7 +15,7 @@ export class UserService{
             throw new DatabaseError(err.message);
         }
 
-        if(existingUser){
+        if (existingUser) {
             logger.error(`User already exists`);
             throw new AppError("User already exists", 400);
         }
@@ -29,12 +28,12 @@ export class UserService{
             throw new DatabaseError(err.message);
         }
 
-        if(newUser){
+        if (newUser) {
             logger.info(`User ${newUser.firstName} ${newUser.lastName} created!`);
         }
-        
+
         return {
-            id: newUser.id ,
+            id: newUser.id,
             firstName: newUser.firstName,
             lastName: newUser.lastName
         }
@@ -44,50 +43,50 @@ export class UserService{
         // check if user exists
         let existingUser;
         try {
-            existingUser = await User.findOne({ where: { id: userId }});
+            existingUser = await User.findOne({ where: { id: Number(userId) } });
         } catch (err: any) {
             logger.error(`Error fetching the user: ${userId}`, err);
             throw new DatabaseError(err.message);
         }
 
-        if(!existingUser){
+        if (!existingUser) {
             logger.error(`User does not exist`);
-            throw new AppError("User does not exist exists", 400); 
+            throw new AppError("User does not exist exists", 400);
         }
 
         return existingUser;
     }
 
-    async getAllUsers(){
+    async getAllUsers() {
 
         let allUsers;
         try {
-            allUsers = await User.findAll();   
+            allUsers = await User.findAll();
         } catch (err: any) {
             logger.error(`Error fetching all the users`, err);
             throw new DatabaseError(err.message);
         }
 
-        if(allUsers){
+        if (allUsers) {
             return allUsers
         }
 
         logger.warn(`No users found`);
-        return 
+        return
     }
 
-    async deleteUser(userId: string){
-        
+    async deleteUser(userId: string) {
+
         // check if user exists
         let existingUser;
         try {
-            existingUser = await User.findOne({ where: { id: userId }});
+            existingUser = await User.findOne({ where: { id: Number(userId) } });
         } catch (err: any) {
             logger.error(`Error fetching the user: ${userId}`, err);
             throw new DatabaseError(err.message);
         }
 
-        if(!existingUser){
+        if (!existingUser) {
             logger.error(`User does not exist`);
             throw new AppError(`User does not exist`, 400);
         }

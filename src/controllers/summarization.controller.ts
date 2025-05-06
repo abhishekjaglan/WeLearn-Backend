@@ -1,11 +1,11 @@
 import { NextFunction, Request, Response } from 'express';
-import { SummarizationResponse } from '../types/summarization.types';
-import logger from '../utils/logger';
-import { upload } from '../middleware/multer.middleware';
-import { summarizationSchema } from '../utils/validation';
+import { SummarizationResponse } from '../types/summarization.types.js';
+import logger from '../utils/logger.js';
+import { upload } from '../middleware/multer.middleware.js';
+import { summarizationSchema } from '../utils/validation.js';
 import { z } from 'zod';
-import { AppError } from '../types/error.type';
-import { SummarizationService } from '../services/summarization.service';
+import { AppError } from '../types/error.type.js';
+import { SummarizationService } from '../services/summarization.service.js';
 
 export class SummarizationController {
   private summarizationService: SummarizationService;
@@ -20,6 +20,7 @@ export class SummarizationController {
       // if (!req.file) {
       //   return res.status(400).json({ error: 'file required' });
       // }
+      logger.info(`Received request to summarize file with detail level: ${detailLevel} and userId: ${userId}`);
 
       const response: SummarizationResponse = await this.summarizationService.processFile(
         detailLevel,

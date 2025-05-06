@@ -1,8 +1,8 @@
-import User from "./User";
-import Record from "./Record";
-import sequelize from "../config/database";
+import User from "./User.js";
+import Record from "./Record.js";
+import sequelize from "../config/database.js";
 
-export function initializeModels(){
+export function initializeModels() {
     User.initModel(sequelize);
     Record.initModel(sequelize);
 

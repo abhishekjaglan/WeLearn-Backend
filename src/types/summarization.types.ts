@@ -12,7 +12,7 @@ export interface SummarizationRequest {
 
 export interface SummarizationResponse {
   summary: string;
-  recordId: String;
+  recordId: number;
 }
 
 export interface TextractInput {

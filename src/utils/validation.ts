@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DetailLevel } from '../types/summarization.types';
+import { DetailLevel } from '../types/summarization.types.js';
 
 // Schema for creating a user
 export const createUserSchema = z.object({

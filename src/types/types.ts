@@ -1,34 +1,33 @@
 
 
-export interface CreateUser{
+export interface CreateUser {
     firstName: String,
     lastName: String,
 }
 
-export interface GetUser{
+export interface GetUser {
     firstName: String,
     lastName: String,
 }
 
-export interface DeleteUser{
+export interface DeleteUser {
     firstName: String,
     lastName: String,
 }
 
-export interface CreateRecord{
-    user: string,
+export interface CreateRecord {
     mediaType: String,
     mediaName: String,
 }
 
 export interface Block {
-        BlockType: 'LINE' | 'WORD' | string;
-        Text?: string;
-        Id?: string;
-        Relationships?: Relationship[];
-    }
+    BlockType: 'LINE' | 'WORD' | string;
+    Text?: string;
+    Id?: string;
+    Relationships?: Relationship[];
+}
 
 export interface Relationship {
-        Type: 'CHILD' | string;
-        Ids?: string[];
-    }
+    Type: 'CHILD' | string;
+    Ids?: string[];
+}

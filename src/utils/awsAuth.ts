@@ -1,6 +1,6 @@
 import { S3Client } from "@aws-sdk/client-s3";
 import { TextractClient } from "@aws-sdk/client-textract";
-import { config } from "./config";
+import { config } from "./config.js";
 
 export class AWSAuth {
   private static s3Client: S3Client;

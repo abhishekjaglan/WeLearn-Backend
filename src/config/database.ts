@@ -1,10 +1,10 @@
 import { Sequelize } from "sequelize";
 import dotenv from 'dotenv';
-import { initializeModels } from "../models/index";
+import { initializeModels } from "../models/index.js";
 
-import '../models/Record';
-import '../models/User';
-import '../models/index';
+import '../models/Record.js';
+import '../models/User.js';
+import '../models/index.js';
 
 dotenv.config();
 

@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
-import { UserService } from "../services/user.service";
-import { createUserSchema, deleteUserSchema, getUserSchema } from "../utils/validation";
-import logger from "../utils/logger";
+import { UserService } from "../services/user.service.js";
+import { createUserSchema, deleteUserSchema, getUserSchema } from "../utils/validation.js";
+import logger from "../utils/logger.js";
 import { z } from "zod";
 
 export class UserController {

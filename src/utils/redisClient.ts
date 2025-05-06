@@ -1,6 +1,6 @@
 import Redis from "ioredis";
-import logger from "./logger";
-import { config } from "./config";
+import logger from "./logger.js";
+import { config } from "./config.js";
 
 export class RedisClient {
     private client: Redis;

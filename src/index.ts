@@ -1,11 +1,12 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
-import { connectDB } from './config/database';
-import logger from './utils/logger';
 import helmet from 'helmet';
-import { errorMiddleware } from './middleware/error.middleware';
-import router from './route';
-import { config } from './utils/config';
+import logger from './utils/logger.js';
+import errorMiddleware from './middleware/error.middleware.js';
+import { router } from './route.js';
+import { config } from './utils/config.js';
+import { connectDB } from './config/database.js';
+
 
 dotenv.config();
 
@@ -15,6 +16,8 @@ const PORT = config.PORT;
 app.use(express.json());
 app.use(helmet());
 await connectDB();
+app.use(express.urlencoded({ extended: true }));
+// app.use(express.static('public'));
 
 app.get('/health', async (req: Request, res: Response) => {
   res.status(200).json({

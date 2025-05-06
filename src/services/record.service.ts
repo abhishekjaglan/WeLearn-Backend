@@ -1,9 +1,8 @@
-import Record from "../models/Record";
-import { UserService } from "./user.service";
-import logger from "../utils/logger";
-import { AppError, DatabaseError } from "../types/error.type";
-import { CreateRecord } from "../types/types";
-import { UUIDTypes } from "uuid";
+import Record from "../models/Record.js";
+import { UserService } from "./user.service.js";
+import logger from "../utils/logger.js";
+import { AppError, DatabaseError } from "../types/error.type.js";
+import { CreateRecord } from "../types/types.js";
 
 export class RecordService {
     private userService: UserService;
@@ -12,7 +11,7 @@ export class RecordService {
         this.userService = new UserService();
     }
 
-    async createRecord(userId: string, record: CreateRecord){
+    async createRecord(userId: string, record: CreateRecord) {
         // check if user exists
         let existingUser;
         try {
@@ -22,9 +21,9 @@ export class RecordService {
             throw new DatabaseError(err.message);
         }
 
-        if(!existingUser){
+        if (!existingUser) {
             logger.error(`User does not exist`);
-            throw new AppError("User does not exist", 400); 
+            throw new AppError("User does not exist", 400);
         }
 
         let newRecord;
@@ -35,19 +34,19 @@ export class RecordService {
             throw new DatabaseError(err.message);
         }
 
-        if(newRecord){
+        if (newRecord) {
             logger.info(`Record ${newRecord} created!`);
         }
-        
+
         return {
-            id: newRecord.id ,
+            id: newRecord.id,
             user: newRecord.user,
             mediaType: newRecord.mediaType,
             mediaName: newRecord.mediaName
         }
     }
 
-    async getRecordsByUser(userId: string){
+    async getRecordsByUser(userId: string) {
         // check if user exists
         let existingUser;
         try {
@@ -57,9 +56,9 @@ export class RecordService {
             throw new DatabaseError(err.message);
         }
 
-        if(!existingUser){
+        if (!existingUser) {
             logger.error(`User does not exist`);
-            throw new AppError("User does not exist", 400); 
+            throw new AppError("User does not exist", 400);
         }
 
         let records;
@@ -73,7 +72,7 @@ export class RecordService {
         return records;
     }
 
-    async getRecordById(userId: string, recordId: string){
+    async getRecordById(userId: string, recordId: string) {
         // check if user exists
         let existingUser;
         try {
@@ -83,14 +82,14 @@ export class RecordService {
             throw new DatabaseError(err.message);
         }
 
-        if(!existingUser){
+        if (!existingUser) {
             logger.error(`User does not exist`);
-            throw new AppError("User does not exist", 400); 
+            throw new AppError("User does not exist", 400);
         }
 
         let record;
         try {
-            record = await Record.findOne({ where: { id: recordId, user: existingUser.id } });
+            record = await Record.findOne({ where: { id: Number(recordId), user: existingUser.id } });
         } catch (err: any) {
             logger.error(`Error fetching the record for user: ${existingUser.id}`, err);
             throw new DatabaseError(err.message);
@@ -99,7 +98,7 @@ export class RecordService {
         return record;
     }
 
-    async deleteRecordsByUser(userId: string){
+    async deleteRecordsByUser(userId: string) {
         // check if user exists
         let existingUser;
         try {
@@ -109,9 +108,9 @@ export class RecordService {
             throw new DatabaseError(err.message);
         }
 
-        if(!existingUser){
+        if (!existingUser) {
             logger.error(`User does not exist`);
-            throw new AppError("User does not exist", 400); 
+            throw new AppError("User does not exist", 400);
         }
 
         let records;
@@ -125,7 +124,7 @@ export class RecordService {
         return records;
     }
 
-    async deleteRecordById(userId: string, recordId: string){
+    async deleteRecordById(userId: string, recordId: string) {
         // check if user exists
         let existingUser;
         try {
@@ -135,14 +134,14 @@ export class RecordService {
             throw new DatabaseError(err.message);
         }
 
-        if(!existingUser){
+        if (!existingUser) {
             logger.error(`User does not exist`);
-            throw new AppError("User does not exist", 400); 
+            throw new AppError("User does not exist", 400);
         }
 
         let record;
         try {
-            record = await Record.destroy({ where: { id: recordId, user: existingUser.id } });
+            record = await Record.destroy({ where: { id: Number(recordId), user: existingUser.id } });
         } catch (err: any) {
             logger.error(`Error deleting the record for id: ${recordId}`, err);
             throw new DatabaseError(err.message);

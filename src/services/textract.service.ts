@@ -1,12 +1,11 @@
 
-import { TextractInput, TextractOutput } from '../types/summarization.types';
-import { AWSAuth } from '../utils/awsAuth';
+import { AWSAuth } from '../utils/awsAuth.js';
 import { DetectDocumentTextCommand, TextractClient } from '@aws-sdk/client-textract';
 import { Block, Relationship } from '../types/types';
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { redisClient, RedisClient } from '../utils/redisClient';
-import logger from '../utils/logger';
-import { config } from '../utils/config';
+import { redisClient, RedisClient } from '../utils/redisClient.js';
+import logger from '../utils/logger.js';
+import { config } from '../utils/config.js';
 export class TextractService {
   private textractClient: TextractClient;
   private s3Client: S3Client;
@@ -36,7 +35,11 @@ export class TextractService {
     });
     const response = await this.textractClient.send(detectDocumentTextCommand);
     logger.info(`Document text detected for: ${hashKey}`);
-    logger.info(`response.Blocks: ${JSON.stringify(response.Blocks)}`);
+    if (response.Blocks) {
+      logger.info(`Blocks detected: ${response.Blocks.length}`);
+    } else {
+      logger.error(`No blocks detected for: ${hashKey}`);
+    }
     return { Blocks: response.Blocks || [] };
   }
 
@@ -87,7 +90,7 @@ export class TextractService {
 
     // Step 5: Combine the text (add a newline between LINE and WORD text if both exist)
     const text = lineText + (lineText && wordText ? '\n' : '') + wordText;
-    logger.info(`Stitched text: ${text}`);
+    logger.info(`Stitched text (50 chars): ${text.slice(0, 50)}...`); // Log first 50 characters
 
     const cacheKey = `textract:${hashKey}`;
     await this.redisClient.set(cacheKey, text, 3600);

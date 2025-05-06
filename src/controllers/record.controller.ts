@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from "express";
-import { RecordService } from "../services/record.service";
-import { createRecordSchema, deleteRecordSchema, getRecordSchema } from "../utils/validation";
+import { RecordService } from "../services/record.service.js";
+import { createRecordSchema, deleteRecordSchema, getRecordSchema } from "../utils/validation.js";
 import { z } from "zod";
-import logger from "../utils/logger";
-import { AppError } from "../types/error.type";
+import logger from "../utils/logger.js";
+import { AppError } from "../types/error.type.js";
 
 class RecordController {
     constructor(private recordService: RecordService) {
@@ -12,17 +12,17 @@ class RecordController {
 
     async createRecord(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
         try {
-                const validatedData = createRecordSchema.parse(req.body);
-                logger.debug(`Validated data: ${validatedData}`);
-                const user = await this.recordService.getRecordsByUser(validatedData.user);
-                if (!user) {
-                    throw new AppError("User does not exist", 400);
-                }
-                const createdRecord = await this.recordService.createRecord(validatedData.user, validatedData);
-                return res.status(201).json({
-                    data: createdRecord,
-                    success: true
-                });
+            const validatedData = createRecordSchema.parse(req.body);
+            logger.debug(`Validated data: ${validatedData}`);
+            const user = await this.recordService.getRecordsByUser(validatedData.user);
+            if (!user) {
+                throw new AppError("User does not exist", 400);
+            }
+            const createdRecord = await this.recordService.createRecord(validatedData.user, validatedData);
+            return res.status(201).json({
+                data: createdRecord,
+                success: true
+            });
         } catch (error) {
             if (error instanceof z.ZodError) {
                 logger.error("Validation error:", error.errors);
