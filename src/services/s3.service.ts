@@ -64,4 +64,4 @@ export class S3Service {
     logger.info(`uploaded file ${file.originalname} to s3: ${hashKey}`);
     return hashKey;
   }
-}
+};
