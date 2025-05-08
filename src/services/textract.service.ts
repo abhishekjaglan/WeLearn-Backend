@@ -6,6 +6,7 @@ import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { redisClient, RedisClient } from '../utils/redisClient.js';
 import logger from '../utils/logger.js';
 import { config } from '../utils/config.js';
+import { AppError } from '../types/error.type.js';
 export class TextractService {
   private textractClient: TextractClient;
   private s3Client: S3Client;
@@ -25,22 +26,35 @@ export class TextractService {
   // }
 
   async textract(hashKey: string): Promise<{ Blocks: any[] }> {
-    const detectDocumentTextCommand = new DetectDocumentTextCommand({
-      Document: {
-        S3Object: {
-          Bucket: config.AWS_S3_BUCKET!,
-          Name: hashKey,
-        }
+    // Check if the document already exists in Redis
+    try {
+      console.log('Inside TextractService');
+      const cachedKey = `textract:${hashKey}`;
+      const extractedCache = await this.redisClient.get(cachedKey);
+      if (extractedCache) {
+        logger.info(`Extracted text already exists in Redis for: ${hashKey}`);
+        return { Blocks: [] };
       }
-    });
-    const response = await this.textractClient.send(detectDocumentTextCommand);
-    logger.info(`Document text detected for: ${hashKey}`);
-    if (response.Blocks) {
-      logger.info(`Blocks detected: ${response.Blocks.length}`);
-    } else {
-      logger.error(`No blocks detected for: ${hashKey}`);
+      const detectDocumentTextCommand = new DetectDocumentTextCommand({
+        Document: {
+          S3Object: {
+            Bucket: config.AWS_S3_BUCKET!,
+            Name: hashKey,
+          }
+        }
+      });
+      const response = await this.textractClient.send(detectDocumentTextCommand);
+      logger.info(`Document text detected for: ${hashKey}`);
+      if (response.Blocks) {
+        logger.info(`Blocks detected: ${response.Blocks.length}`);
+      } else {
+        logger.error(`No blocks detected for: ${hashKey}`);
+      }
+      return { Blocks: response.Blocks || [] };
+    } catch (error) {
+      logger.error(`Error checking Redis for document: ${hashKey}`, error);
+      throw new AppError('Error extracting text from document', 500);
     }
-    return { Blocks: response.Blocks || [] };
   }
 
   async stitchTextFromBlocks(blocks: any, hashKey: string): Promise<string> {

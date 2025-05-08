@@ -1,12 +1,8 @@
-//TODO:
 
 import { DetailLevel, SummarizationResponse } from "../types/summarization.types.js";
-import { config } from "../utils/config.js";
-import bcrypt from "bcrypt";
 import { TextractService } from "./textract.service.js";
 import { LLMService } from "./llm.service.js";
 import { S3Service } from "./s3.service.js";
-import Record from "../models/Record.js";
 import logger from "../utils/logger.js";
 import { RecordService } from "./record.service.js";
 
@@ -29,18 +25,18 @@ export class SummarizationService {
     this.recordService = new RecordService();
   }
 
-  async processFile(detailLevel: DetailLevel, userId: string, file?: Express.Multer.File): Promise<SummarizationResponse> {
+  async processFile(detailLevel: DetailLevel, userId: string, file: Express.Multer.File): Promise<SummarizationResponse> {
     try {
 
-      logger.info(`Processing request to process file with detail level: ${detailLevel} and userId: ${userId}`);
+      logger.info(`Processing request to process file for userId: ${userId} and detailLevel: ${detailLevel}`);
       // Step 1: Generate S3 key
       // hash of file name and userId
       // const hashText = `${file.originalname}-${userId}`;
       // const hashText = `Latest Resume.pdf-${userId}`;
       // const hashKey = await bcrypt.hash(hashText, config.BCRYPT_SALT_ROUNDS);
-      const hashKey = `Latest Resume.pdf-${userId}`;
+      const hashKey = `${userId}-${file.originalname}`;
       // Step 2: Upload file to S3
-      await this.s3Service.uploadPdfToS3(hashKey);
+      await this.s3Service.uploadFileToS3(hashKey, file);
       // Step 3: Extract text from S3
       const extractedText = await this.textractService.textract(hashKey);
       // Step 4: Stitch text from blocks
