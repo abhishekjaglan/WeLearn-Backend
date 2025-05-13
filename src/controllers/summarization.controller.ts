@@ -9,7 +9,6 @@ import { SummarizationService } from '../services/summarization.service.js';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { AWSAuth } from '../utils/awsAuth.js';
 import fs from 'fs';
-import { config } from '../utils/config.js';
 
 export class SummarizationController {
   private summarizationService: SummarizationService;

@@ -1,6 +1,6 @@
 
 import { AWSAuth } from '../utils/awsAuth.js';
-import { DetectDocumentTextCommand, TextractClient } from '@aws-sdk/client-textract';
+import { DetectDocumentTextCommand, GetDocumentTextDetectionCommand, StartDocumentTextDetectionCommand, TextractClient } from '@aws-sdk/client-textract';
 import { Block, Relationship } from '../types/types';
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { redisClient, RedisClient } from '../utils/redisClient.js';
@@ -18,13 +18,6 @@ export class TextractService {
     this.redisClient = redisClient;
   }
 
-  // async extractText(s3Key: string, fileName: string): Promise<string> {
-  //   const input: TextractInput = { s3Key, fileName };
-  //   const output = await this.textractClient.call<TextractInput, TextractOutput>('extractText', input);
-  //   logger.info(`extracted text for ${fileName}`);
-  //   return output.text;
-  // }
-
   async textract(hashKey: string): Promise<{ Blocks: any[] }> {
     // Check if the document already exists in Redis
     try {
@@ -35,15 +28,24 @@ export class TextractService {
         logger.info(`Extracted text already exists in Redis for: ${hashKey}`);
         return { Blocks: [] };
       }
-      const detectDocumentTextCommand = new DetectDocumentTextCommand({
-        Document: {
+      const detectDocumentTextCommand = new StartDocumentTextDetectionCommand({
+        DocumentLocation: {
           S3Object: {
             Bucket: config.AWS_S3_BUCKET!,
             Name: hashKey,
-          }
-        }
+          },
+        },
       });
-      const response = await this.textractClient.send(detectDocumentTextCommand);
+
+      const DetectionResponse = await this.textractClient.send(detectDocumentTextCommand);
+      const jobId = DetectionResponse.JobId;
+      if (!jobId) {
+        logger.error(`No JobId returned for: ${hashKey}`);
+        throw new AppError('No JobId returned from Textract', 500);
+      }
+
+      const response = await this.getTextractJobStatus(jobId);
+
       logger.info(`Document text detected for: ${hashKey}`);
       if (response.Blocks) {
         logger.info(`Blocks detected: ${response.Blocks.length}`);
@@ -67,7 +69,7 @@ export class TextractService {
 
     if (!blocks || blocks.length === 0) {
       logger.error(`No blocks found for ${hashKey}`);
-      return 'No Bocks Found';
+      return 'No Blocks Found';
     }
     // Step 1: Collect LINE blocks and their child WORD block IDs
     const lineBlocks: any[] = [];
@@ -110,12 +112,20 @@ export class TextractService {
     await this.redisClient.set(cacheKey, text, 3600);
     logger.info(`cached extracted text for ${hashKey} in Redis`);
 
-    // await this.s3Client.send(new DeleteObjectCommand({
-    //   Bucket: config.AWS_S3_BUCKET!,
-    //   Key: s3Key,
-    // }));
-    // logger.info(`deleted s3 object ${s3Key}`);
-
     return text;
+  }
+
+  async getTextractJobStatus(jobId: string): Promise<any> {
+    const getCommand = new GetDocumentTextDetectionCommand({ JobId: jobId });
+    let response;
+    do {
+      response = await this.textractClient.send(getCommand);
+      if (response.JobStatus === 'SUCCEEDED') {
+        return response;
+      } else if (response.JobStatus === 'FAILED') {
+        throw new Error('Textract job failed');
+      }
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+    } while (response.JobStatus === 'IN_PROGRESS');
   }
 }
