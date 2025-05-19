@@ -1,7 +1,7 @@
 
 import { AWSAuth } from '../utils/awsAuth.js';
-import { DetectDocumentTextCommand, GetDocumentTextDetectionCommand, StartDocumentTextDetectionCommand, TextractClient } from '@aws-sdk/client-textract';
-import { Block, Relationship } from '../types/types';
+import { GetDocumentTextDetectionCommand, StartDocumentTextDetectionCommand, TextractClient } from '@aws-sdk/client-textract';
+import { Block, Relationship } from '@aws-sdk/client-textract/dist-types/models/models_0.js';
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { redisClient, RedisClient } from '../utils/redisClient.js';
 import logger from '../utils/logger.js';
