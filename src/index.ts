@@ -34,5 +34,5 @@ app.listen(PORT, (err) => {
   if (err) {
     console.error(`Error starting backend server!`);
   }
-  logger.info(`WeLearn backend server running on port ${PORT}!`);
+  logger.info(`WeLearn backend http server running on port ${PORT}!`);
 });
