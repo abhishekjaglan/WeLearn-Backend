@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import logger from './utils/logger.js';
@@ -14,8 +15,8 @@ const app = express();
 const PORT = config.PORT;
 
 app.use(express.json());
+app.use(cors());
 app.use(helmet());
-await connectDB();
 app.use(express.urlencoded({ extended: true }));
 // app.use(express.static('public'));
 
@@ -30,9 +31,10 @@ app.use('/api', router);
 
 app.use(errorMiddleware);
 
-app.listen(PORT, (err) => {
+app.listen(PORT, async (err) => {
   if (err) {
     console.error(`Error starting backend server!`);
   }
   logger.info(`WeLearn backend http server running on port ${PORT}!`);
+  await connectDB();
 });
