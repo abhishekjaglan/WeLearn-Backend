@@ -21,6 +21,10 @@ jobs:
         run: |
           cd /home/ec2-user/welearn/app/WeLearn-Backend
           npm install
+      - name: Build backend
+        run: |
+          cd /home/ec2-user/welearn/app/WeLearn-Backend
+          npm run build
       - name: Restart PM2 process
         run: |
           cd /home/ec2-user/welearn/app/WeLearn-Backend
