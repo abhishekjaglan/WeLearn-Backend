@@ -8,6 +8,7 @@ import { router } from './route.js';
 import { config } from './utils/config.js';
 import { connectDB } from './config/database.js';
 import { mcpClientService } from './services/mcp.client.service.js';
+import { redisClient } from './utils/redisClient.js';
 
 dotenv.config();
 
@@ -40,9 +41,8 @@ const server = app.listen(PORT, async (err?: any) => {
     await connectDB();
     
     // Initialize MCP client and fetch function definitions
-    await mcpClientService.initialize();
-    const functionDefinitions = mcpClientService.getFunctionDefinitions();
-    logger.info("Available function definitions for LLM:", functionDefinitions.map(f => f.function.name));
+    await mcpClientService.functionDefinitionsFunction();
+    logger.info("Available function definitions for LLM:", mcpClientService.functionDefinitions.map(f => f.function.name));
   } catch (error) {
     logger.error('Failed to initialize services:', error);
   }
@@ -52,7 +52,7 @@ const server = app.listen(PORT, async (err?: any) => {
 const cleanup = async () => {
   logger.info('Shutting down gracefully...');
   try {
-    await mcpClientService.disconnect();
+    await mcpClientService.cleanup();
     logger.info('MCP client disconnected.');
   } catch (error) {
     logger.error('Error during cleanup:', error);
@@ -61,6 +61,10 @@ const cleanup = async () => {
 
 process.on('SIGINT', async () => {
   await cleanup();
+  if (redisClient) {
+    // Add Redis cleanup if needed
+    logger.info('Redis client disconnected.');
+  }
   server.close(() => {
     logger.info('HTTP server closed.');
     process.exit(0);
@@ -69,6 +73,10 @@ process.on('SIGINT', async () => {
 
 process.on('SIGTERM', async () => {
   await cleanup();
+  if (redisClient) {
+    // Add Redis cleanup if needed
+    logger.info('Redis client disconnected.');
+  }
   server.close(() => {
     logger.info('HTTP server closed.');
     process.exit(0);

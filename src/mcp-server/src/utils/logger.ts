@@ -6,7 +6,8 @@ const logger = winston.createLogger({
     winston.format.timestamp(),
     winston.format.json(),
     winston.format.colorize(),
-    winston.format.printf(({ timestamp, level, message, ...meta }) => {
+    winston.format.printf((info: any) => {
+      const { timestamp, level, message, ...meta } = info;
       return `[MCP-Server] ${timestamp} ${level}: ${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`;
     })
   ),

@@ -12,7 +12,7 @@ export class UserController {
     }
 
     // Create a user (POST /api/user)
-    async createUser(req: Request, res: Response, next: NextFunction) {
+    async createUser(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const validatedData = createUserSchema.parse(req.body);
             console.log(validatedData);
@@ -25,18 +25,19 @@ export class UserController {
         } catch (error: any) {
             if (error instanceof z.ZodError) {
                 logger.error("Validation error:", error.errors);
-                return res.status(400).json({
+                res.status(400).json({
                     success: false,
                     message: "Invalid input",
                     errors: error.errors,
                 });
+                return;
             }
             next(error); // Pass AppError or DatabaseError to error middleware
         }
     }
 
     // Get a user by firstName and lastName (GET /api/user)
-    async getUser(req: Request, res: Response, next: NextFunction) {
+    async getUser(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const userId = req.params.id;
             const user = await this.userService.getUser(userId);
@@ -47,18 +48,19 @@ export class UserController {
         } catch (error) {
             if (error instanceof z.ZodError) {
                 logger.error("Validation error:", error.errors);
-                return res.status(400).json({
+                res.status(400).json({
                     success: false,
                     message: "Invalid input",
                     errors: error.errors,
                 });
+                return;
             }
             next(error);
         }
     }
 
     // Get all users (GET /api/user/all)
-    async getAllUsers(req: Request, res: Response, next: NextFunction) {
+    async getAllUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const users = await this.userService.getAllUsers();
             res.status(200).json({
@@ -71,7 +73,7 @@ export class UserController {
     }
 
     // Delete a user (DELETE /api/user)
-    async deleteUser(req: Request, res: Response, next: NextFunction) {
+    async deleteUser(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const userId = req.params.id;
             const result = await this.userService.deleteUser(userId);
@@ -83,11 +85,12 @@ export class UserController {
         } catch (error) {
             if (error instanceof z.ZodError) {
                 logger.error("Validation error:", error.errors);
-                return res.status(400).json({
+                res.status(400).json({
                     success: false,
                     message: "Invalid input",
                     errors: error.errors,
                 });
+                return;
             }
             next(error);
         }

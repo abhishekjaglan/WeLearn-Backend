@@ -8,8 +8,8 @@ chatRouter.post('/', upload.single('file'), (req, res, next) => {
   chatController.processMessage(req, res, next);
 });
 
-chatRouter.get('/history/:conversationId', (req, res, next) => {
-  chatController.getConversationHistory(req, res, next);
+chatRouter.get('/history/:sessionId', (req, res, next) => {
+  chatController.getChatHistory(req, res, next);
 });
 
 export default chatRouter;

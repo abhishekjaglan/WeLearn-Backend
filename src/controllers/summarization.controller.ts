@@ -19,15 +19,17 @@ export class SummarizationController {
     this.s3Client = AWSAuth.getS3Client();
   }
 
-  async summarize(req: Request, res: Response, next: NextFunction) {
+  async summarize(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.body.data) {
         logger.error("Request body does not contain 'data'");
-        return res.status(400).json({ error: 'data required' });
+        res.status(400).json({ error: 'data required' });
+        return;
       }
       if (!req.file) {
         logger.error("Request body does not contain 'file'");
-        return res.status(400).json({ error: 'file required' });
+        res.status(400).json({ error: 'file required' });
+        return;
       }
       const data = JSON.parse(req.body.data);
       logger.info("Parsed data: ", data);
@@ -39,6 +41,7 @@ export class SummarizationController {
 
       // await this.verifyS3File(config.AWS_S3_BUCKET!, hashKey);
       // logger.info(`File verified in S3: ${hashKey}`);
+
       // const filePath = './s3-download-12+Rules+to+Learn+to+Code+[2nd+Edition]+2022.pdf-1';
       // const buffer = fs.readFileSync(filePath).slice(0, 5);
       // console.log(buffer.toString('utf8'));
@@ -62,18 +65,19 @@ export class SummarizationController {
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         logger.error("Validation error:", error.errors);
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: "Invalid input",
           errors: error.errors,
         });
+        return;
       }
       logger.error("Summarization error:", error);
       throw new AppError('Summarization error', 500);
     }
   }
 
-  async verifyS3File(bucket: string, key: string) {
+  async verifyS3File(bucket: string, key: string): Promise<void> {
     const command = new GetObjectCommand({ Bucket: bucket, Key: key });
     const response = await this.s3Client.send(command);
     const body = await this.streamToBuffer(response.Body); // Convert stream to buffer

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "nodemon --exec \"node --loader ts-node/esm\" src/index.ts",
-    "build": "tsc -b && cd src/mcp-server && npm run build",
+    "build": "rm -rf dist && rm -rf src/mcp-server/dist && tsc -b && cd src/mcp-server && npm run build",
     "build:mcp": "cd src/mcp-server && npm run build",
     "install:mcp": "cd src/mcp-server && npm install",
     "lint": "eslint 'src/**/*.{ts,tsx}' --fix",

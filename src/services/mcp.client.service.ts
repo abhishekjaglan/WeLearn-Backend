@@ -1,80 +1,59 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { spawn } from 'child_process';
+import path from "path";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import logger from '../utils/logger.js';
-import path from 'path';
-
-export interface MCPTool {
-  name: string;
-  description: string;
-  inputSchema: any;
-}
 
 export interface FunctionDefinition {
-  type: 'function';
+  type: string;
   function: {
     name: string;
-    description: string;
+    description: string | undefined;
     parameters: any;
   };
 }
 
 export class MCPClientService {
-  private client: Client | null = null;
-  private transport: StdioClientTransport | null = null;
-  private functionDefinitions: FunctionDefinition[] = [];
-  private isConnected: boolean = false;
+  private mcpServerPath: string;
+  public functionDefinitions: FunctionDefinition[] = [];
+  private transport: StdioClientTransport;
+  public client: Client;
 
   constructor() {
-    // Don't initialize immediately, let it be done explicitly
-  }
-
-  async initialize(): Promise<void> {
-    try {
-      // Path to the MCP server
-      const serverPath = path.resolve(process.cwd(), 'src/mcp-server/dist/index.js');
-      
-      const transportOptions = {
-        command: 'node',
-        args: [serverPath],
-        env: { ...process.env },
-        stdio: ['pipe', 'pipe', 'inherit'] as const
-      };
-
-      this.transport = new StdioClientTransport(transportOptions);
-
-      this.client = new Client(
-        {
-          name: 'welearn-backend-client',
-          version: '1.0.0',
-        },
-        {
-          capabilities: {},
-          defaultRequestTimeout: 300000 // 5 minutes
+    // Path to the MCP server
+    this.mcpServerPath = path.resolve(process.cwd(), 'src/mcp-server/dist/index.js');
+    
+    const transportOptions = {
+      command: 'node',
+      args: [this.mcpServerPath],
+      env: Object.keys(process.env).reduce((acc, key) => {
+        const value = process.env[key];
+        if (value !== undefined) {
+          acc[key] = value;
         }
-      );
+        return acc;
+      }, {} as Record<string, string>), // Ensure all env values are strings
+      stdio: ['pipe', 'pipe', 'inherit'] as const, // stdin, stdout, stderr (inherit stderr for debugging MCP)
+    };
 
-      await this.client.connect(this.transport);
-      this.isConnected = true;
-      logger.info('MCP Client connected successfully');
-
-      // Fetch available tools dynamically
-      await this.fetchFunctionDefinitions();
-    } catch (error) {
-      logger.error('Failed to initialize MCP client:', error);
-      throw error;
-    }
+    this.transport = new StdioClientTransport(transportOptions);
+    this.client = new Client(
+      { 
+        name: 'welearn-client-cli', 
+        version: '1.0.0' 
+      },
+      { capabilities: {} }  // Remove defaultRequestTimeout as it's not supported
+    );
   }
 
-  private async fetchFunctionDefinitions(): Promise<void> {
-    if (!this.client) {
-      throw new Error('MCP Client not initialized');
-    }
-
+  async functionDefinitionsFunction(): Promise<void> {
     try {
-      const toolsResponse = await this.client.listTools(undefined, { timeout: 300000 });
-      let actualTools: MCPTool[] = [];
+      await this.client.connect(this.transport);
+      logger.info('Connected to WeLearn MCP server');
 
+      // Explicitly set timeout for the listTools call
+      const toolsResponse = await this.client.listTools(undefined, { timeout: 300000 }); // 300,000 ms = 5 minutes
+      let actualTools = [];
+      
       if (toolsResponse && Array.isArray(toolsResponse.tools)) {
         actualTools = toolsResponse.tools.map((t) => ({
           name: t.name,
@@ -83,87 +62,42 @@ export class MCPClientService {
         }));
       } else {
         logger.warn("toolsResponse.tools is not an array or is undefined:", toolsResponse);
-        this.functionDefinitions = [];
-        return;
+        // Ensure functionDefinitions remains empty or is explicitly cleared if no tools are found
+        this.functionDefinitions.length = 0;
+        return; // Exit if no tools are found or response is invalid
       }
 
-      // Clear existing definitions
-      this.functionDefinitions = [];
-
-      // Create new function definitions for LLM
-      const newDefinitions: FunctionDefinition[] = actualTools.map((tool) => ({
+      // Clear the existing array contents without creating a new reference
+      this.functionDefinitions.length = 0; 
+      
+      // Populate the array with new definitions
+      const newDefinitions = actualTools.map((tool) => ({
         type: 'function',
         function: {
           name: tool.name,
           description: tool.description,
-          parameters: tool.inputSchema || { type: 'object', properties: {} },
+          parameters: tool.inputSchema || { type: 'object', properties: {} }, // Fallback for parameters
         },
       }));
-
-      this.functionDefinitions.push(...newDefinitions);
+      this.functionDefinitions.push(...newDefinitions); // Add items from newDefinitions to the existing array reference
       
       logger.info('Retrieved tools:', actualTools.map((t) => t.name));
-      logger.info('Function definitions available:', this.functionDefinitions.map(f => f.function.name));
     } catch (error) {
-      logger.error('Error fetching function definitions from MCP server:', error);
-      this.functionDefinitions = [];
+      logger.error('Error connecting to MCP server or listing tools:', error);
+      // Clear functionDefinitions in case of an error to prevent using stale/partial data
+      this.functionDefinitions.length = 0; 
       throw error;
     }
   }
 
-  async ensureConnected(): Promise<void> {
-    if (!this.isConnected || !this.client) {
-      await this.initialize();
-    }
-  }
-
-  getFunctionDefinitions(): FunctionDefinition[] {
-    return this.functionDefinitions;
-  }
-
-  hasFunctions(): boolean {
-    return this.functionDefinitions.length > 0;
-  }
-
-  async callTool(name: string, args: any): Promise<any> {
-    await this.ensureConnected();
-    
-    if (!this.client) {
-      throw new Error('MCP Client not connected');
-    }
-
-    try {
-      logger.info(`Calling MCP tool: ${name} with arguments:`, JSON.stringify(args));
-      
-      const result = await this.client.callTool({
-        name,
-        arguments: args,
-      });
-
-      if (result.isError) {
-        throw new Error(`MCP Tool error: ${result.content[0]?.text}`);
-      }
-
-      logger.info(`Received response from MCP tool ${name}`);
-      return result;
-    } catch (error) {
-      logger.error(`Error calling MCP tool ${name}:`, error);
-      throw error;
-    }
-  }
-
-  async disconnect(): Promise<void> {
-    if (this.client && this.transport) {
+  async cleanup(): Promise<void> {
+    logger.info('Shutting down MCP client...');
+    if (this.client) {
       try {
-        await this.client.close();
-        logger.info('MCP Client disconnected');
-      } catch (error) {
-        logger.error('Error closing MCP client:', error);
-      } finally {
-        this.client = null;
-        this.transport = null;
-        this.isConnected = false;
-        this.functionDefinitions = [];
+        await this.client.close(); 
+        logger.info('MCP client closed.');
+      } catch (e) {
+        logger.error('Error closing MCP client:', e);
       }
     }
   }

@@ -1,288 +1,373 @@
+import { Request, Response } from 'express';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { DetailLevel } from "../types/summarization.types.js";
 import { S3Service } from "./s3.service.js";
 import { mcpClientService } from "./mcp.client.service.js";
-import { LLMService } from "./llm.service.js";
 import { RecordService } from "./record.service.js";
 import { redisClient } from "../utils/redisClient.js";
+import { config } from "../utils/config.js";
 import logger from "../utils/logger.js";
 
 export interface ChatMessage {
+  id?: string;
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
-  timestamp?: Date;
+  timestamp?: string;
+  sessionId?: string;
   tool_call_id?: string;
   name?: string;
 }
 
-export interface ChatResponse {
-  message: string;
-  recordId?: number;
-  conversationId: string;
-}
-
 export class ChatService {
   private s3Service: S3Service;
-  private llmService: LLMService;
   private recordService: RecordService;
+  private geminiApiKey: string;
+  private genAI: GoogleGenerativeAI;
+  private FIXED_SESSION_ID: string = "fixed-session-dev-001"; // Fixed session ID
+  private System_Prompt: string = `You are a helpful document analysis assistant. You can help users understand and summarize documents they upload. 
 
-  private readonly SYSTEM_PROMPT = `You are a helpful document analysis assistant. You can help users understand and summarize documents they upload. 
+Available functions:
+- summarize_document: Extract text from documents and get chunks for analysis
 
 When a user uploads a document and asks for summarization:
-1. Use the available tools to process the document
-2. Analyze the returned data to create comprehensive summaries
+1. Call the summarize_document function with the document details
+2. Process the returned chunks to create a comprehensive summary based on the requested detail level
 3. Provide insights and answer questions about the document content
 
 Always be helpful, accurate, and provide detailed responses when analyzing documents.`;
 
   constructor() {
     this.s3Service = new S3Service();
-    this.llmService = new LLMService();
     this.recordService = new RecordService();
+    this.geminiApiKey = config.GEMINI_API_KEY!;
+    this.genAI = new GoogleGenerativeAI(this.geminiApiKey);
+
+    if (!this.geminiApiKey) {
+      logger.error('Missing Gemini API configuration. Set GEMINI_API_KEY environment variable.');
+      throw new Error('Missing Gemini API configuration');
+    }
   }
 
-  async processUserMessage(
-    message: string,
-    userId: string,
-    conversationId: string,
-    file?: Express.Multer.File,
-    detailLevel: DetailLevel = DetailLevel.MEDIUM
-  ): Promise<ChatResponse> {
+  /**
+   * CORE FUNCTION: Enhanced chat method with Redis chat history and LLM chunking support
+   */
+  async chat(req: Request, res: Response): Promise<void> {
+    const { message: userMessage, sessionId: clientSessionId, detailLevel = DetailLevel.MEDIUM } = req.body;
+    const file = req.file;
+    const currentSessionId = this.FIXED_SESSION_ID; // Override with fixed ID
+
+    if (!userMessage) {
+      res.status(400).json({ error: 'User message content is required' });
+      return;
+    }
+
+    let internalConversationMessages: any[] = [];
+    let displayableConversation: ChatMessage[] = [];
+
     try {
-      // Store user message in conversation history
-      await this.storeMessage(conversationId, {
-        role: 'user',
-        content: message,
-        timestamp: new Date(),
-      });
-
-      // Get conversation context (system prompt + last 3 messages)
-      const context = await this.getConversationContext(conversationId);
-
-      let response: string;
-      let recordId: number | undefined;
-
-      if (file) {
-        // Handle document upload and processing
-        const result = await this.processDocumentWithDynamicLLM(
-          message,
-          userId,
-          file,
-          detailLevel,
-          context
-        );
-        response = result.summary;
-        recordId = result.recordId;
-      } else {
-        // Handle regular chat message with potential function calling
-        response = await this.processChatWithFunctionCalling(message, context);
+      // Ensure Redis client is connected
+      if (!redisClient) {
+        logger.error('Redis client is not available');
+        res.status(503).json({ error: 'Chat history service is temporarily unavailable.' });
+        return;
       }
-
-      // Store assistant response
-      await this.storeMessage(conversationId, {
-        role: 'assistant',
-        content: response,
-        timestamp: new Date(),
-      });
-
-      return {
-        message: response,
-        recordId,
-        conversationId,
-      };
-    } catch (error) {
-      logger.error('Error processing user message:', error);
-      throw error;
-    }
-  }
-
-  private async processDocumentWithDynamicLLM(
-    userMessage: string,
-    userId: string,
-    file: Express.Multer.File,
-    detailLevel: DetailLevel,
-    context: ChatMessage[]
-  ): Promise<{ summary: string; recordId: number }> {
-    // Upload file to S3
-    const hashKey = `${userId}-${file.originalname}-${Date.now()}`;
-    await this.s3Service.uploadFileToS3(hashKey, file);
-
-    // Use dynamic function calling
-    const llmResponse = await this.llmService.processWithFunctionCalling(
-      userMessage,
-      context,
-      {
-        s3Key: hashKey,
-        fileName: file.originalname,
-        userId,
-      }
-    );
-
-    let summary = llmResponse.response;
-
-    if (llmResponse.shouldCallFunction) {
-      // Process function calls dynamically
-      const functionResult = await this.handleFunctionCall(
-        llmResponse.functionName!,
-        llmResponse.functionArgs,
-        detailLevel,
-        context
-      );
-      summary = functionResult;
-    }
-
-    // Create record in database
-    const record = await this.recordService.createRecord(userId, {
-      mediaType: file.mimetype.includes('pdf') ? 'pdf' : 'doc',
-      mediaName: file.originalname,
-    });
-
-    return {
-      summary,
-      recordId: record.id,
-    };
-  }
-
-  private async processChatWithFunctionCalling(
-    message: string,
-    context: ChatMessage[]
-  ): Promise<string> {
-    const llmResponse = await this.llmService.processWithFunctionCalling(
-      message,
-      context
-    );
-
-    if (llmResponse.shouldCallFunction) {
-      // Handle function calls for non-document scenarios
-      return await this.handleFunctionCall(
-        llmResponse.functionName!,
-        llmResponse.functionArgs,
-        DetailLevel.MEDIUM,
-        context
-      );
-    }
-
-    return llmResponse.response;
-  }
-
-  private async handleFunctionCall(
-    functionName: string,
-    functionArgs: any,
-    detailLevel: DetailLevel,
-    context: ChatMessage[]
-  ): Promise<string> {
-    try {
-      logger.info(`Handling function call: ${functionName}`);
-
-      // Call the MCP tool dynamically
-      const toolResult = await mcpClientService.callTool(functionName, functionArgs);
       
-      // Parse the tool result
-      let resultData;
-      if (typeof toolResult.content === 'string') {
-        try {
-          resultData = JSON.parse(toolResult.content);
-        } catch {
-          resultData = { content: toolResult.content };
-        }
-      } else if (Array.isArray(toolResult.content) && toolResult.content.length > 0) {
-        try {
-          resultData = JSON.parse(toolResult.content[0].text || '{}');
-        } catch {
-          resultData = { content: toolResult.content[0]?.text || 'No content' };
-        }
-      } else {
-        resultData = toolResult.content;
+      // STEP 2: Load displayable history from Redis
+      const storedHistory = await redisClient.get(`session:${currentSessionId}:display`);
+      if (storedHistory) {
+        displayableConversation = JSON.parse(storedHistory);
       }
 
-      // Handle different function types
-      switch (functionName) {
-        case 'summarize_document':
-          return await this.handleDocumentSummarization(resultData, detailLevel, context);
-        default:
-          // Generic function handling
-          return `Function ${functionName} executed successfully. Result: ${JSON.stringify(resultData)}`;
+      const limitedHistory = displayableConversation.slice(-5);
+
+      // STEP 3: Reconstruct internal Gemini messages from displayable history
+      internalConversationMessages = limitedHistory.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
+      // STEP 4: Add system prompt if needed
+      if (internalConversationMessages.length === 0 || internalConversationMessages[0]?.role !== 'system') {
+        internalConversationMessages.unshift({ 
+          role: 'system', 
+          content: this.System_Prompt
+        });
       }
+
+      // Handle file upload if present
+      let uploadedFileInfo: { s3Key: string; fileName: string; userId: string } | null = null;
+      if (file) {
+        const hashKey = `${currentSessionId}-${file.originalname}-${Date.now()}`;
+        await this.s3Service.uploadFileToS3(hashKey, file);
+        uploadedFileInfo = {
+          s3Key: hashKey,
+          fileName: file.originalname,
+          userId: currentSessionId
+        };
+        internalConversationMessages.push({
+          role: 'user',
+          content: `A document has been uploaded. 
+Filename: ${file.originalname}
+S3 Key: ${hashKey}
+User ID: ${currentSessionId}
+Please use this information if you need to process or summarize the document.`,
+        });
+        logger.info(`File uploaded: ${file.originalname} -> ${hashKey}`);
+      }
+
+      internalConversationMessages.push({ role: 'user', content: userMessage });
+
+      let finalAssistantResponseText: string | null = null;
+      let maxIterations = 5; // Increased for complex operations
+      let iterations = 0;
+      let recordId: number | undefined;
+      
+      // STEP 5: Iterative processing loop
+      while (finalAssistantResponseText === null && iterations < maxIterations) {
+        iterations++;
+        logger.info(`[ChatService] Processing iteration ${iterations}/${maxIterations}`);
+
+        // STEP 6: Call Gemini with function calling
+        const model = this.genAI.getGenerativeModel({ 
+          model: 'gemini-1.5-flash',
+          tools: mcpClientService.functionDefinitions.length > 0 ? [{
+            functionDeclarations: mcpClientService.functionDefinitions.map(def => ({
+              name: def.function.name,
+              description: def.function.description,
+              parameters: def.function.parameters,
+            }))
+          }] : undefined,
+        });
+
+        const result = await model.generateContent({
+          contents: internalConversationMessages.map(msg => ({
+            role: msg.role === 'system' ? 'user' : msg.role, // Gemini doesn't have system role
+            parts: [{ text: msg.content }]
+          }))
+        });
+
+        const response = result.response;
+        const functionCalls = response.functionCalls();
+
+        if (functionCalls && functionCalls.length > 0) {
+          // STEP 7: Add assistant message with function calls
+          internalConversationMessages.push({
+            role: 'assistant',
+            content: response.text() || '',
+            tool_calls: functionCalls
+          });
+
+          // STEP 8: Process function calls
+          for (const functionCall of functionCalls) {
+            const { name, args } = functionCall;
+            
+            logger.info(`[ChatService] Calling MCP tool: ${name} with arguments:`, JSON.stringify(args));
+            
+            try {
+              let toolResult: any;
+
+              // Handle document processing with file upload
+              if (name === 'summarize_document' && uploadedFileInfo) {
+                const mcpArgs = {
+                  s3Key: uploadedFileInfo.s3Key,
+                  fileName: uploadedFileInfo.fileName,
+                  userId: uploadedFileInfo.userId
+                };
+                
+                const mcpResponse = await mcpClientService.client.callTool({
+                  name: name,
+                  arguments: mcpArgs as Record<string, unknown>,
+                });
+                
+                toolResult = JSON.parse((mcpResponse.content as any[])[0].text);
+                
+                // Process the chunks for summarization
+                if (toolResult.success && toolResult.chunks) {
+                  const processedSummary = await this.processDocumentChunks(
+                    toolResult.chunks,
+                    detailLevel as DetailLevel,
+                    internalConversationMessages
+                  );
+                  
+                  // Create database record
+                  // const record = await this.recordService.createRecord(currentSessionId, {
+                  //   mediaType: file!.mimetype.includes('pdf') ? 'pdf' : 'doc',
+                  //   mediaName: file!.originalname,
+                  // });
+                  // recordId = record.id;
+                  
+                  toolResult.processedSummary = processedSummary;
+                  // toolResult.recordId = recordId;
+                }
+              } else {
+                // Handle regular tool calls
+                logger.info(`[ChatService] Calling regular MCP tool: ${name}`);
+                const mcpResponse = await mcpClientService.client.callTool({
+                  name: name,
+                  arguments: args as Record<string, unknown>,
+                });
+                toolResult = JSON.parse((mcpResponse.content as any[])[0].text);
+              }
+              
+              // STEP 10: Add tool result to conversation
+              internalConversationMessages.push({
+                role: 'tool',
+                tool_call_id: functionCall.name,
+                content: JSON.stringify(toolResult),
+              });
+              
+            } catch (toolError) {
+              logger.error(`[ChatService] Error in tool execution:`, toolError);
+              internalConversationMessages.push({
+                role: 'tool',
+                tool_call_id: functionCall.name,
+                content: JSON.stringify({ 
+                  error: toolError instanceof Error ? toolError.message : 'Unknown error',
+                  details: toolError 
+                }),
+              });
+            }
+          }
+        } else {
+          // STEP 11: Final response received
+          finalAssistantResponseText = response.text();
+        }
+      }
+      
+      // STEP 12: Handle max iterations reached
+      if (!finalAssistantResponseText && iterations >= maxIterations) {
+        finalAssistantResponseText = "I seem to be having trouble completing your request after several attempts. Could you please try rephrasing or breaking it down?";
+        if (internalConversationMessages[internalConversationMessages.length - 1]?.role !== 'assistant') {
+          internalConversationMessages.push({
+            role: 'assistant', 
+            content: finalAssistantResponseText
+          });
+        }
+      }
+
+      // STEP 13: Update displayable conversation
+      displayableConversation.push({ 
+        id: `user-${Date.now()}`, 
+        role: 'user', 
+        content: userMessage, 
+        timestamp: new Date().toISOString(),
+        sessionId: currentSessionId 
+      });
+      
+      if (finalAssistantResponseText) {
+        displayableConversation.push({ 
+          id: `assistant-${Date.now()}`, 
+          role: 'assistant', 
+          content: finalAssistantResponseText, 
+          timestamp: new Date().toISOString(),
+          sessionId: currentSessionId
+        });
+      }
+
+      // Save updated displayable history to Redis
+      const redisKey = `session:${currentSessionId}:display`;
+      const redisValue = JSON.stringify(displayableConversation);
+
+      if (typeof redisKey !== 'string' || redisKey === '' || typeof redisValue !== 'string') {
+        logger.error('Invalid key or value for Redis set command.', { redisKey, typeOfValue: typeof redisValue });
+      } else {
+        await redisClient.set(redisKey, redisValue, 86400); // Expires in 1 day
+        logger.info(`Successfully set Redis key: ${redisKey}`);
+      }
+      
+      res.json({ 
+        assistantResponse: finalAssistantResponseText,
+        updatedConversation: displayableConversation,
+        recordId: recordId
+      });
+
     } catch (error) {
-      logger.error(`Error handling function call ${functionName}:`, error);
-      return `I encountered an error while processing your request: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      logger.error('Error processing chat:', error);
+      let detailMessage = "An unexpected error occurred.";
+      if (error instanceof Error) {
+        detailMessage = error.message;
+      } else if (typeof error === 'string') {
+        detailMessage = error;
+      }
+      res.status(500).json({ error: 'Internal server error', details: detailMessage });
     }
   }
 
-  private async handleDocumentSummarization(
-    resultData: any,
+  /**
+   * Process document chunks for summarization
+   */
+  private async processDocumentChunks(
+    chunks: string[],
     detailLevel: DetailLevel,
-    context: ChatMessage[]
+    context: any[]
   ): Promise<string> {
-    if (!resultData.success || !resultData.chunks) {
-      return "I couldn't process the document. Please try uploading a different file.";
-    }
-
-    const chunks: string[] = resultData.chunks;
-    
     if (chunks.length === 0) {
       return "I couldn't extract any text from the document. Please try uploading a different file.";
     }
 
-    // Process chunks with LLM to create summary
     const chunkSummaries: string[] = [];
+    const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
+    const maxWords = {
+      [DetailLevel.SHORT]: 50,
+      [DetailLevel.MEDIUM]: 150,
+      [DetailLevel.DETAILED]: 300,
+    }[detailLevel];
+
+    // Process each chunk
     for (let i = 0; i < chunks.length; i++) {
-      const chunkSummary = await this.llmService.summarizeChunk(
-        chunks[i],
-        detailLevel,
-        context,
-        i + 1,
-        chunks.length
-      );
-      chunkSummaries.push(chunkSummary);
+      const contextPrompt = context
+        .filter(msg => msg.role === 'system' || msg.role === 'user' || msg.role === 'assistant')
+        .map(msg => `${msg.role}: ${msg.content}`)
+        .join('\n\n');
+
+      const prompt = `${contextPrompt}
+
+Summarize this document chunk (${i + 1}/${chunks.length}) in ${detailLevel} detail (max ${maxWords} words):
+
+${chunks[i]}`;
+
+      const result = await model.generateContent(prompt);
+      const summary = result.response.text();
+      chunkSummaries.push(summary);
     }
 
-    // Combine chunk summaries into final summary
-    const finalSummary = await this.llmService.combineSummaries(
-      chunkSummaries,
-      detailLevel,
-      context
-    );
-
-    return finalSummary;
-  }
-
-  private async getConversationContext(conversationId: string): Promise<ChatMessage[]> {
-    const messages: ChatMessage[] = [];
-
-    // Always include system prompt as first message
-    messages.push({
-      role: 'system',
-      content: this.SYSTEM_PROMPT,
-    });
-
-    // Get last 3 messages from conversation history
-    const recentMessages = await redisClient.lrange(`chat:${conversationId}`, 0, 2);
-    
-    for (const msgStr of recentMessages.reverse()) {
-      const message: ChatMessage = JSON.parse(msgStr);
-      messages.push(message);
+    // Combine summaries if multiple chunks
+    if (chunkSummaries.length === 1) {
+      return chunkSummaries[0];
     }
 
-    return messages;
+    const combinedSummaries = chunkSummaries.join('\n\n---\n\n');
+    const finalPrompt = `Combine these individual summaries into one cohesive ${detailLevel} summary of the entire document:
+
+${combinedSummaries}
+
+Create a well-structured, comprehensive summary that maintains the ${detailLevel} level of detail requested.`;
+
+    const finalResult = await model.generateContent(finalPrompt);
+    return finalResult.response.text();
   }
 
-  private async storeMessage(conversationId: string, message: ChatMessage): Promise<void> {
-    const key = `chat:${conversationId}`;
-    await redisClient.lpush(key, JSON.stringify(message));
-    
-    // Keep only last 10 messages per conversation
-    const messageCount = await redisClient.llen(key);
-    if (messageCount > 10) {
-      await redisClient.ltrim(key, 0, 9);
+  /**
+   * Get chat history from Redis
+   */
+  async getChatHistory(req: Request, res: Response): Promise<void> {
+    const { sessionId } = req.params;
+    const currentSessionId = sessionId || this.FIXED_SESSION_ID;
+
+    try {
+      const storedHistory = await redisClient.get(`session:${currentSessionId}:display`);
+      const history = storedHistory ? JSON.parse(storedHistory) : [];
+
+      res.json({
+        sessionId: currentSessionId,
+        conversation: history
+      });
+    } catch (error) {
+      logger.error('Error fetching chat history:', error);
+      res.status(500).json({ error: 'Failed to fetch chat history' });
     }
-
-    // Set expiry for conversation (24 hours)
-    await redisClient.expire(key, 86400);
-  }
-
-  async getConversationHistory(conversationId: string): Promise<ChatMessage[]> {
-    const messages = await redisClient.lrange(`chat:${conversationId}`, 0, -1);
-    return messages.reverse().map(msgStr => JSON.parse(msgStr));
   }
 }
+
+export const chatService = new ChatService();
