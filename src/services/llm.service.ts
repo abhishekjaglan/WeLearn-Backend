@@ -3,6 +3,7 @@ import { DetailLevel } from '../types/summarization.types.js';
 import logger from '../utils/logger.js';
 import { redisClient, RedisClient } from '../utils/redisClient.js';
 import { config } from '../utils/config.js';
+import { Types } from '../utils/validation.js';
 
 export class LLMService {
   private redisClient: RedisClient;
@@ -20,12 +21,13 @@ export class LLMService {
   //   return output.summary;
   // }
 
-  async summarizeExtractedText(extractedText: string, detailLevel: DetailLevel, hashKey: string): Promise<{ summary: string }> {
+  async summarizeExtractedText(extractedText: string, detailLevel: DetailLevel, hashKey: string, type: string): Promise<string > {
+
     const cacheKey = `llm:${hashKey}:${detailLevel}`;
     const cachedSummary = await this.redisClient.get(cacheKey);
     if (cachedSummary) {
       logger.info(`cache hit for ${cacheKey}`);
-      return { summary: cachedSummary };
+      return cachedSummary;
     }
 
     const maxTokens = {
@@ -39,8 +41,10 @@ export class LLMService {
     const result = await model.generateContent(prompt);
 
     const summary = result.response.text();
-    await this.redisClient.set(cacheKey, summary, 3600);  // Cache for 1 hour
+    if (type !== Types.TEXT) {
+      await this.redisClient.set(cacheKey, summary, 3600);  // Cache for 1 hour
+    }
     logger.info(`generated summary for detail level ${detailLevel}: ${summary.length} characters`);
-    return { summary: summary };
+    return summary;
   }
 }

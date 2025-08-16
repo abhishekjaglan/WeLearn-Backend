@@ -1,64 +1,76 @@
 import { NextFunction, Request, Response } from 'express';
 import { SummarizationResponse } from '../types/summarization.types.js';
 import logger from '../utils/logger.js';
-import { upload } from '../middleware/multer.middleware.js';
-import { summarizationSchema } from '../utils/validation.js';
+import { summarizationSchema, Types } from '../utils/validation.js';
 import { z } from 'zod';
 import { AppError } from '../types/error.type.js';
 import { SummarizationService } from '../services/summarization.service.js';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { AWSAuth } from '../utils/awsAuth.js';
 import fs from 'fs';
+import { LLMService } from '../services/llm.service.js';
 
 export class SummarizationController {
   private summarizationService: SummarizationService;
   private s3Client: S3Client;
+  private llmService: LLMService;
 
   constructor() {
     this.summarizationService = new SummarizationService();
     this.s3Client = AWSAuth.getS3Client();
+    this.llmService = new LLMService();
   }
 
   async summarize(req: Request, res: Response, next: NextFunction) {
     try {
+      // check if both types and detailLevel are present
       if (!req.body.data) {
-        logger.error("Request body does not contain 'data'");
-        return res.status(400).json({ error: 'data required' });
-      }
-      if (!req.file) {
-        logger.error("Request body does not contain 'file'");
-        return res.status(400).json({ error: 'file required' });
+        logger.error("Request body does not contain 'types or detailLevel'");
+        return res.status(400).json({ error: '"types and detailLevel" required' });
       }
       const data = JSON.parse(req.body.data);
       logger.info("Parsed data: ", data);
-      const { detailLevel, userId } = summarizationSchema.parse(data);
-      const file = req.file;
-      // const hashKey = `${file.originalname}-${userId}`;
+      const { detailLevel, type } = summarizationSchema.parse(data);
+      let file: Express.Multer.File | undefined;
+      let summary: string | undefined;
 
-      logger.info(`Received request to summarize file with detail level: ${detailLevel} and userId: ${userId}`);
+      // if url
+      if (type === Types.URL) {
+         // TODO: Implement URL handling
+          return res.status(400).json({ error: 'URL type not yet implemented' });
+          // if text
+      } else if (type === Types.TEXT) {
+        if (!req.body.text) {
+          logger.error("Request body does not contain 'text' for type 'text'");
+          return res.status(400).json({ error: 'text field required' });
+        }
 
-      // await this.verifyS3File(config.AWS_S3_BUCKET!, hashKey);
-      // logger.info(`File verified in S3: ${hashKey}`);
-      // const filePath = './s3-download-12+Rules+to+Learn+to+Code+[2nd+Edition]+2022.pdf-1';
-      // const buffer = fs.readFileSync(filePath).slice(0, 5);
-      // console.log(buffer.toString('utf8'));
+        const text = req.body.text;
+        logger.info("Received text for summarization: ", text);
+        summary = await this.llmService.summarizeExtractedText(text, detailLevel, 'TEXT', type);
+        // if file  
+      } else if (type === Types.FILE) { 
+        if(!req.file) {
+          logger.error("Request body does not contain 'file' for type 'file'");
+          return res.status(400).json({ error: 'file field required' });
+        }
+        file = req.file;
+        const content = await this.summarizationService.processFile(
+          detailLevel,
+          file
+        );
+        summary = await this.llmService.summarizeExtractedText(content.stitchedText as string, detailLevel, file.originalname, type);
+      }
 
-      // res.status(200).json({
-      //   message: 'File received successfully',
-      //   fileName: req.file.originalname,
-      //   fileSize: req.file.size,
-      //   fileType: req.file.mimetype,
-      //   detailLevel,
-      //   userId,
-      // });
+      if(!summary){
+        logger.error("Failed to generate summary");
+        return res.status(500).json({ error: 'Failed to generate summary' });
+      }
 
-      const response: SummarizationResponse = await this.summarizationService.processFile(
-        detailLevel,
-        userId,
-        file
-      );
 
-      res.status(200).json(response);
+      res.status(200).json({
+        response : summary
+      });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         logger.error("Validation error:", error.errors);

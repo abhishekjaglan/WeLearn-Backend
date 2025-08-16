@@ -14,27 +14,21 @@ import { RecordService } from "./record.service.js";
 
 export class SummarizationService {
   private textractService: TextractService;
-  private llmService: LLMService;
   private s3Service: S3Service;
   private recordService: RecordService;
 
   constructor() {
     this.textractService = new TextractService();
-    this.llmService = new LLMService();
     this.s3Service = new S3Service();
     this.recordService = new RecordService();
   }
 
-  async processFile(detailLevel: DetailLevel, userId: string, file: Express.Multer.File): Promise<SummarizationResponse> {
+  async processFile(detailLevel: DetailLevel, file: Express.Multer.File): Promise<SummarizationResponse> {
     try {
 
-      logger.info(`Processing request to process file for userId: ${userId} and detailLevel: ${detailLevel}`);
+      logger.info(`Processing request to process file for detailLevel: ${detailLevel}`);
       // Step 1: Generate S3 key
-      // hash of file name and userId
-      // const hashText = `${file.originalname}-${userId}`;
-      // const hashText = `Latest Resume.pdf-${userId}`;
-      // const hashKey = await bcrypt.hash(hashText, config.BCRYPT_SALT_ROUNDS);
-      const hashKey = `${userId}-${file.originalname}`;
+      const hashKey = `${file.originalname}`;
       // Step 2: Upload file to S3
       await this.s3Service.uploadFileToS3(hashKey, file);
       // Step 3: Extract text from S3
@@ -42,21 +36,21 @@ export class SummarizationService {
       // Step 4: Stitch text from blocks
       const stitchedText = await this.textractService.stitchTextFromBlocks(extractedText.Blocks, hashKey);
       // Step 5: Summarize text
-      const summary = await this.llmService.summarizeExtractedText(stitchedText, detailLevel, hashKey);
+      // const summary = await this.llmService.summarizeExtractedText(stitchedText, detailLevel, hashKey);
 
-      const record = await this.recordService.createRecord(
-        userId,
-        {
-          // mediaType: file?.mimetype.includes('pdf') ? 'pdf' : 'doc', // Remove ? when using dynamic file
-          mediaType: 'pdf', // Remove when using dynamic file
-          mediaName: file?.originalname || 'Resume Latest.pdf', // Remove ? when using dynamic file
-        }
-      );
-      logger.info(`Record created with ID: ${record.id}`);
+      // const record = await this.recordService.createRecord(
+      //   userId,
+      //   {
+      //     // mediaType: file?.mimetype.includes('pdf') ? 'pdf' : 'doc', // Remove ? when using dynamic file
+      //     mediaType: 'pdf', // Remove when using dynamic file
+      //     mediaName: file?.originalname || 'Resume Latest.pdf', // Remove ? when using dynamic file
+      //   }
+      // );
+      // logger.info(`Record created with ID: ${record.id}`);
 
       return {
-        summary: summary.summary, // summary.summary,
-        recordId: record.id,
+        stitchedText: stitchedText,
+        // recordId: record.id,
       };
     } catch (error) {
       console.error('Error processing file:', error);
@@ -64,4 +58,22 @@ export class SummarizationService {
 
     }
   }
+
+  // async processURL(detailLevel: DetailLevel, text: string): Promise<SummarizationResponse> {
+  //   try {
+  //     logger.info(`Processing request to summarize URL for detailLevel: ${detailLevel}`);
+  //     // Step 1: Extract text from URL
+  //     const extractedText = await this.llmService.extractTextFromURL(text);
+  //     // Step 2: Stitch text from blocks
+  //     const stitchedText = await this.llmService.stitchTextFromBlocks(extractedText);
+
+  //     return {
+  //       stitchedText: stitchedText,
+  //     };
+  //   } catch (error) {
+  //     console.error('Error processing URL:', error);
+  //     throw error;
+  //   }
+  // }
+  
 }

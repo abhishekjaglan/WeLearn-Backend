@@ -11,8 +11,7 @@ export interface SummarizationRequest {
 }
 
 export interface SummarizationResponse {
-  summary: string;
-  recordId: number;
+  stitchedText: string;
 }
 
 export interface TextractInput {

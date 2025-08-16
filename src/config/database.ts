@@ -5,7 +5,6 @@ import { initializeModels } from "../models/index.js";
 import '../models/Record.js';
 import '../models/User.js';
 import '../models/index.js';
-import logger from "../utils/logger.js";
 
 dotenv.config();
 
@@ -23,7 +22,7 @@ export async function connectDB() {
     try {
         //checks connection to db
         await sequelize.authenticate();
-        logger.info('Database connection established successfully.')
+        console.log('Database connection established successfully.')
 
         //initializing models after sequalize is initialized
         initializeModels();
@@ -31,7 +30,7 @@ export async function connectDB() {
         // creating/updating tables as per models
         await sequelize.sync({ alter: true });
     } catch (error) {
-        logger.error('Unable to connect to database:', error);
+        console.error('Unable to connect to database:', error);
         await sequelize.close();
         process.exit(1);
     }

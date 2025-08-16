@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { DetailLevel } from '../types/summarization.types.js';
 
+export enum Types {
+  URL = 'url',
+  TEXT = 'text',
+  FILE = 'file',
+}
+
 // Schema for creating a user
 export const createUserSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -36,5 +42,5 @@ export const deleteRecordSchema = z.object({
 
 export const summarizationSchema = z.object({
   detailLevel: z.enum([DetailLevel.SHORT, DetailLevel.MEDIUM, DetailLevel.DETAILED]),
-  userId: z.string(),
+  type: z.enum([Types.URL, Types.TEXT, Types.FILE]),
 });
