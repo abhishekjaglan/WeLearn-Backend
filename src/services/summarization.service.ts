@@ -34,7 +34,12 @@ export class SummarizationService {
       // Step 3: Extract text from S3
       const extractedText = await this.textractService.textract(hashKey);
       // Step 4: Stitch text from blocks
-      const stitchedText = await this.textractService.stitchTextFromBlocks(extractedText.Blocks, hashKey);
+      let stitchedText : string;
+      if(extractedText.Blocks.length > 0) {
+        stitchedText = await this.textractService.stitchTextFromBlocks(extractedText.Blocks, hashKey);
+      }else {
+        stitchedText = extractedText.redisText;
+      }
       // Step 5: Summarize text
       // const summary = await this.llmService.summarizeExtractedText(stitchedText, detailLevel, hashKey);
 

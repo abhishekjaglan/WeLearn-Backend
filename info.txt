@@ -1,0 +1,16 @@
+Endpoint - /summarize
+
+multipart/form-data
+req: {
+    data : {
+            "detailLevel":"short/medium/detailed",
+            "type":"text/url/file
+        },
+    url:
+    text:
+    file:
+}
+
+res : {
+    response : summary
+}

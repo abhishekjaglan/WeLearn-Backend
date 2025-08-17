@@ -28,7 +28,6 @@ app.get('/health', async (req: Request, res: Response) => {
 });
 
 app.use('/api', router);
-
 app.use(errorMiddleware);
 
 app.listen(PORT, async (err) => {

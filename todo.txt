@@ -1,1 +1,0 @@
-- Frontend for textract feature (decide design)

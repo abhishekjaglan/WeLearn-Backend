@@ -24,21 +24,52 @@ export class SummarizationController {
   async summarize(req: Request, res: Response, next: NextFunction) {
     try {
       // check if both types and detailLevel are present
-      if (!req.body.data) {
-        logger.error("Request body does not contain 'types or detailLevel'");
-        return res.status(400).json({ error: '"types and detailLevel" required' });
+      if (!req.body.detailLevel || !req.body.type) {
+        logger.error("Request body does not contain 'type or detailLevel'");
+        return res.status(400).json({ error: '"type and detailLevel" required' });
       }
-      const data = JSON.parse(req.body.data);
-      logger.info("Parsed data: ", data);
-      const { detailLevel, type } = summarizationSchema.parse(data);
+      const detailLevel = req.body.detailLevel;
+      const type = req.body.type;
+      logger.info("Parsed data: ", { detailLevel, type });
+
+      // Check which fields are present
+      const hasUrl = !!req.body.url;
+      const hasText = !!req.body.text;
+      const hasFile = !!req.file;
+
+      // Validation: Ensure only one input source is provided
+      const inputCount = [hasUrl, hasText, hasFile].filter(Boolean).length;
+      if (inputCount === 0) {
+        logger.error("No input source provided");
+        return res.status(400).json({ error: 'At least one input source required: url, text, or file' });
+      }
+      if (inputCount > 1) {
+        logger.error("Multiple input sources provided");
+        return res.status(400).json({ error: 'Only one input source allowed at a time' });
+      }
+
+      // Validation: Ensure the correct field matches the specified type
+      if (type === Types.URL && !hasUrl) {
+        logger.error("Type 'url' specified but no url field provided");
+        return res.status(400).json({ error: 'url field required when type is "url"' });
+      }
+      if (type === Types.TEXT && !hasText) {
+        logger.error("Type 'text' specified but no text field provided");
+        return res.status(400).json({ error: 'text field required when type is "text"' });
+      }
+      if (type === Types.FILE && !hasFile) {
+        logger.error("Type 'file' specified but no file field provided");
+        return res.status(400).json({ error: 'file field required when type is "file"' });
+      }
+
       let file: Express.Multer.File | undefined;
       let summary: string | undefined;
 
-      // if url
+      // url
       if (type === Types.URL) {
          // TODO: Implement URL handling
           return res.status(400).json({ error: 'URL type not yet implemented' });
-          // if text
+      // text
       } else if (type === Types.TEXT) {
         if (!req.body.text) {
           logger.error("Request body does not contain 'text' for type 'text'");
@@ -48,7 +79,7 @@ export class SummarizationController {
         const text = req.body.text;
         logger.info("Received text for summarization: ", text);
         summary = await this.llmService.summarizeExtractedText(text, detailLevel, 'TEXT', type);
-        // if file  
+      // file  
       } else if (type === Types.FILE) { 
         if(!req.file) {
           logger.error("Request body does not contain 'file' for type 'file'");

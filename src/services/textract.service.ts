@@ -18,7 +18,7 @@ export class TextractService {
     this.redisClient = redisClient;
   }
 
-  async textract(hashKey: string): Promise<{ Blocks: any[] }> {
+  async textract(hashKey: string): Promise<{ Blocks: any[], redisText: string }> {
     // Check if the document already exists in Redis
     try {
       console.log('Inside TextractService');
@@ -26,7 +26,7 @@ export class TextractService {
       const extractedCache = await this.redisClient.get(cachedKey);
       if (extractedCache) {
         logger.info(`Extracted text already exists in Redis for: ${hashKey}`);
-        return { Blocks: [] };
+        return { Blocks: [], redisText: extractedCache };
       }
       const detectDocumentTextCommand = new StartDocumentTextDetectionCommand({
         DocumentLocation: {
@@ -52,7 +52,7 @@ export class TextractService {
       } else {
         logger.error(`No blocks detected for: ${hashKey}`);
       }
-      return { Blocks: response.Blocks || [] };
+      return { Blocks: response.Blocks || [], redisText: '' };
     } catch (error) {
       logger.error(`Error checking Redis for document: ${hashKey}`, error);
       throw new AppError('Error extracting text from document', 500);

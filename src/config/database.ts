@@ -15,7 +15,7 @@ const sequelize = new Sequelize({
     username: process.env.POSTGRES_USER || 'welearn_user',
     password: process.env.POSTGRES_PASSWORD || 'welearn_password',
     database: process.env.POSTGRES_DB || 'welearn_db',
-    logging: process.env.NODE_ENV === 'development' ? console.log : false, // Log SQL in dev
+    logging: process.env.NODE_ENV === 'development' ? false : false, // Log SQL in dev
 });
 
 export async function connectDB() {
