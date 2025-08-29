@@ -6,7 +6,7 @@ import logger from './utils/logger.js';
 import errorMiddleware from './middleware/error.middleware.js';
 import { router } from './route.js';
 import { config } from './utils/config.js';
-import { connectDB } from './config/database.js';
+// import { connectDB } from './config/database.js';
 
 
 dotenv.config();
@@ -35,5 +35,5 @@ app.listen(PORT, async (err) => {
     console.error(`Error starting backend server!`);
   }
   logger.info(`WeLearn backend http server running on port ${PORT}!`);
-  await connectDB();
+  // await connectDB();
 });

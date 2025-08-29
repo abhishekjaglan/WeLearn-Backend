@@ -26,7 +26,7 @@ export class SummarizationService {
   async processFile(detailLevel: DetailLevel, file: Express.Multer.File): Promise<SummarizationResponse> {
     try {
 
-      logger.info(`Processing request to process file for detailLevel: ${detailLevel}`);
+      logger.info(`Processing request to process document for detailLevel: ${detailLevel}`);
       // Step 1: Generate S3 key
       const hashKey = `${file.originalname}`;
       // Step 2: Upload file to S3

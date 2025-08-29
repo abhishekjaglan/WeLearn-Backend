@@ -1,10 +1,12 @@
 import { S3Client } from "@aws-sdk/client-s3";
 import { TextractClient } from "@aws-sdk/client-textract";
+import { TranscribeClient } from "@aws-sdk/client-transcribe";
 import { config } from "./config.js";
 
 export class AWSAuth {
   private static s3Client: S3Client;
   private static textractClient: TextractClient;
+  private static transcribeClient: TranscribeClient;
 
   private static command = {
     region: config.AWS_REGION,
@@ -26,5 +28,12 @@ export class AWSAuth {
       this.textractClient = new TextractClient(this.command);
     }
     return this.textractClient;
+  }
+
+  static getTranscribeClient(): TranscribeClient {
+    if (!this.transcribeClient) {
+      this.transcribeClient = new TranscribeClient(this.command);
+    }
+    return this.transcribeClient;
   }
 }
