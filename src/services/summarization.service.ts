@@ -43,7 +43,6 @@ export class SummarizationService {
 
       return {
         stitchedText: stitchedText,
-        // recordId: record.id,
       };
     } catch (error) {
       console.error('Error processing file:', error);

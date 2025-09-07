@@ -100,7 +100,20 @@ export class SummarizationController {
         const content = await this.summarizationService.processFile(
           file
         );
+        
+        // ADD THIS DEBUG LOG HERE (after line ~103)
+        logger.info(`=== FILE PROCESSING DEBUG ===`);
+        logger.info(`Original file: ${file.originalname}, size: ${file.size} bytes`);
+        logger.info(`Extracted text length: ${content.stitchedText?.length || 0} characters`);
+        logger.info(`Text preview (first 200 chars): ${content.stitchedText?.substring(0, 200) || 'No text'}...`);
+        logger.info(`Text preview (last 200 chars): ...${content.stitchedText?.substring(content.stitchedText.length - 200) || 'No text'}`);
+        
         summary = await this.llmService.summarizeExtractedText(content.stitchedText as string, detailLevel, file.originalname, type);
+        
+        // ADD THIS DEBUG LOG HERE (after summarization)
+        logger.info(`Generated summary length: ${summary?.length || 0} characters`);
+        logger.info(`Summary preview: ${summary?.substring(0, 300) || 'No summary'}...`);
+        logger.info(`=== END FILE PROCESSING DEBUG ===`);
       }
 
       if(!summary){

@@ -48,8 +48,16 @@ export class LLMService {
     hashKey: string, 
     type: string
   ): Promise<string> {
+    // ADD THIS DEBUG LOG HERE (at the beginning of method)
+    logger.info(`=== LLM SUMMARIZATION DEBUG ===`);
+    logger.info(`Input text length: ${extractedText.length} characters`);
+    logger.info(`Detail level: ${detailLevel}`);
+    logger.info(`Hash key: ${hashKey}`);
+    logger.info(`Type: ${type}`);
     const config = this.modelConfigs[this.currentModel];
     const textTokens = this.estimateTokenCount(extractedText);
+
+    logger.info(`Estimated token count: ${textTokens}`);
 
     // Automatically use chunking for large texts
     if (textTokens > config.chunkSize) {
@@ -72,7 +80,7 @@ export class LLMService {
     }[detailLevel];
 
     const model = this.genAI.getGenerativeModel({ model: this.currentModel });
-    const prompt = `Summarize the following text in ${detailLevel} detail, max ${maxTokens} words, focusing on this text:\n${extractedText}`;
+    const prompt = `Summarize the following text in ${detailLevel} detail, focusing on this text:\n${extractedText}`;
     const result = await model.generateContent(prompt);
 
     const summary = result.response.text();

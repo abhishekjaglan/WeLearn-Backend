@@ -46,6 +46,11 @@ export class TextractService {
 
       const response = await this.getTextractJobStatus(jobId);
 
+      // ADD THIS LOGGING HERE (after line ~47)
+      if (response.DocumentMetadata) {
+        logger.info(`Document metadata - Pages: ${response.DocumentMetadata.Pages}`);
+      }
+
       logger.info(`Document text detected for: ${hashKey}`);
       if (response.Blocks) {
         logger.info(`Blocks detected: ${response.Blocks.length}`);
@@ -71,6 +76,18 @@ export class TextractService {
       logger.error(`No blocks found for ${hashKey}`);
       return 'No Blocks Found';
     }
+    
+    // ADD THIS DEBUG LOGGING HERE (after line ~75)
+    logger.info(`=== TEXTRACT STITCHING DEBUG ===`);
+    logger.info(`Processing ${blocks.length} blocks for ${hashKey}`);
+    
+    // Count block types for debugging
+    const blockTypeCounts = blocks.reduce((acc: any, block: any) => {
+      acc[block.BlockType] = (acc[block.BlockType] || 0) + 1;
+      return acc;
+    }, {});
+    logger.info(`Block types: ${JSON.stringify(blockTypeCounts)}`);
+    
     // Step 1: Collect LINE blocks and their child WORD block IDs
     const lineBlocks: any[] = [];
     const childWordIds = new Set();
@@ -94,6 +111,11 @@ export class TextractService {
       block.BlockType === 'WORD' && !childWordIds.has(block.Id)
     );
 
+    // ADD MORE DEBUG LOGGING HERE (before step 3)
+    logger.info(`Found ${lineBlocks.length} LINE blocks`);
+    logger.info(`Found ${childWordIds.size} child WORD IDs`);
+    logger.info(`Found ${standaloneWordBlocks.length} standalone WORD blocks`);
+
     // Step 3: Extract text from LINE blocks
     const lineText = lineBlocks
       .map(block => block.Text || '')
@@ -106,7 +128,14 @@ export class TextractService {
 
     // Step 5: Combine the text (add a newline between LINE and WORD text if both exist)
     const text = lineText + (lineText && wordText ? '\n' : '') + wordText;
-    logger.info(`Stitched text (50 chars): ${text.slice(0, 50)}...`); // Log first 50 characters
+    
+    // REPLACE THE EXISTING LOG WITH ENHANCED VERSION
+    logger.info(`Line text length: ${lineText.length} characters`);
+    logger.info(`Word text length: ${wordText.length} characters`);
+    logger.info(`Combined text length: ${text.length} characters`);
+    logger.info(`Text preview (first 100 chars): ${text.slice(0, 100)}...`);
+    logger.info(`Text preview (last 100 chars): ...${text.slice(-100)}`);
+    logger.info(`=== END TEXTRACT STITCHING DEBUG ===`);
 
     const cacheKey = `textract:${hashKey}`;
     await this.redisClient.set(cacheKey, text, 3600);
@@ -116,16 +145,49 @@ export class TextractService {
   }
 
   async getTextractJobStatus(jobId: string): Promise<any> {
-    const getCommand = new GetDocumentTextDetectionCommand({ JobId: jobId });
-    let response;
+    let allBlocks: any[] = [];
+    let nextToken: string | undefined = undefined;
+    let response: any;
+    
+    // Wait for job to complete first
     do {
+      const getCommand = new GetDocumentTextDetectionCommand({ JobId: jobId });
       response = await this.textractClient.send(getCommand);
+      
       if (response.JobStatus === 'SUCCEEDED') {
-        return response;
+        break;
       } else if (response.JobStatus === 'FAILED') {
-        throw new Error('Textract job failed');
+        throw new Error(`Textract job failed: ${response.StatusMessage}`);
       }
+      
+      logger.info(`Job status: ${response.JobStatus}, waiting...`);
       await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
     } while (response.JobStatus === 'IN_PROGRESS');
+    
+    // Now fetch ALL pages of results with pagination
+    do {
+      const getCommand = new GetDocumentTextDetectionCommand({ 
+        JobId: jobId,
+        ...(nextToken && { NextToken: nextToken })
+      });
+      
+      response = await this.textractClient.send(getCommand);
+      
+      if (response.Blocks) {
+        allBlocks = allBlocks.concat(response.Blocks);
+        logger.info(`Fetched ${response.Blocks.length} blocks, total so far: ${allBlocks.length}`);
+      }
+      
+      nextToken = response.NextToken;
+      logger.info(`NextToken exists: ${!!nextToken}`);
+      
+    } while (nextToken);
+    
+    logger.info(`Final total blocks collected: ${allBlocks.length}`);
+    
+    return {
+      ...response,
+      Blocks: allBlocks
+    };
   }
 }
