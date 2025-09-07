@@ -20,14 +20,15 @@ export class URLProcessingService {
     this.transcribeService = new TranscribeService();
   }
 
-  async processURL(url: string): Promise<string> {
+  async processURL(url: string): Promise<string | boolean> {
     try {
       if (this.isYouTubeURL(url)) {
         logger.info(`Processing YouTube URL: ${url}`);
         return await this.processYouTubeURL(url);
       } else {
         logger.info(`Processing website URL: ${url}`);
-        return await this.scrapeWebsite(url);
+        // return await this.scrapeWebsite(url);
+        return false;
       }
     } catch (error) {
       logger.error('Error processing URL:', error);

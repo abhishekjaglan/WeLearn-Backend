@@ -70,14 +70,16 @@ export class SummarizationController {
 
       // url
       if (type === Types.URL) {
-         // TODO: Implement URL handling
          if (!req.body.url) {
           logger.error("Request body does not contain 'url' for type 'url'");
           return res.status(400).json({ error: 'url field required' });
         }
         const url = req.body.url;
         const extractedText = await this.urlProcessingService.processURL(url);
-        summary = await this.llmService.summarizeExtractedText(extractedText, detailLevel, url, type);
+        if(!extractedText){
+          return res.status(200).json({ message: 'Scrapping feature not Live yet, stay tuned!' });
+        }
+        summary = await this.llmService.summarizeExtractedText(extractedText as string, detailLevel, url, type);
       // text
       } else if (type === Types.TEXT) {
         if (!req.body.text) {
@@ -107,7 +109,7 @@ export class SummarizationController {
       }
 
 
-      res.status(200).json({
+      return res.status(200).json({
         response : summary
       });
     } catch (error: any) {
