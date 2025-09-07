@@ -9,16 +9,19 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { AWSAuth } from '../utils/awsAuth.js';
 import fs from 'fs';
 import { LLMService } from '../services/llm.service.js';
+import { URLProcessingService } from '../services/url.service.js';
 
 export class SummarizationController {
   private summarizationService: SummarizationService;
   private s3Client: S3Client;
   private llmService: LLMService;
+  private urlProcessingService: URLProcessingService;
 
   constructor() {
     this.summarizationService = new SummarizationService();
     this.s3Client = AWSAuth.getS3Client();
     this.llmService = new LLMService();
+    this.urlProcessingService = new URLProcessingService();
   }
 
   async summarize(req: Request, res: Response, next: NextFunction) {
@@ -68,7 +71,13 @@ export class SummarizationController {
       // url
       if (type === Types.URL) {
          // TODO: Implement URL handling
-          return res.status(400).json({ error: 'URL type not yet implemented' });
+         if (!req.body.url) {
+          logger.error("Request body does not contain 'url' for type 'url'");
+          return res.status(400).json({ error: 'url field required' });
+        }
+        const url = req.body.url;
+        const extractedText = await this.urlProcessingService.processURL(url);
+        summary = await this.llmService.summarizeExtractedText(extractedText, detailLevel, url, type);
       // text
       } else if (type === Types.TEXT) {
         if (!req.body.text) {
@@ -87,7 +96,6 @@ export class SummarizationController {
         }
         file = req.file;
         const content = await this.summarizationService.processFile(
-          detailLevel,
           file
         );
         summary = await this.llmService.summarizeExtractedText(content.stitchedText as string, detailLevel, file.originalname, type);

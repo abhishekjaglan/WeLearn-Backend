@@ -1,7 +1,7 @@
 
-import { DetailLevel, SummarizationResponse } from "../types/summarization.types.js";
+import { SummarizationResponse } from "../types/summarization.types.js";
 import { TextractService } from "./textract.service.js";
-import { LLMService } from "./llm.service.js";
+// import { LLMService } from "./llm.service.js";
 import { S3Service } from "./s3.service.js";
 import logger from "../utils/logger.js";
 import { RecordService } from "./record.service.js";
@@ -23,10 +23,10 @@ export class SummarizationService {
     this.recordService = new RecordService();
   }
 
-  async processFile(detailLevel: DetailLevel, file: Express.Multer.File): Promise<SummarizationResponse> {
+  async processFile(file: Express.Multer.File): Promise<SummarizationResponse> {
     try {
 
-      logger.info(`Processing request to process document for detailLevel: ${detailLevel}`);
+      logger.info(`Processing request to process document for text extraction and summarization for detailLevel`);
       // Step 1: Generate S3 key
       const hashKey = `${file.originalname}`;
       // Step 2: Upload file to S3
@@ -40,18 +40,6 @@ export class SummarizationService {
       }else {
         stitchedText = extractedText.redisText;
       }
-      // Step 5: Summarize text
-      // const summary = await this.llmService.summarizeExtractedText(stitchedText, detailLevel, hashKey);
-
-      // const record = await this.recordService.createRecord(
-      //   userId,
-      //   {
-      //     // mediaType: file?.mimetype.includes('pdf') ? 'pdf' : 'doc', // Remove ? when using dynamic file
-      //     mediaType: 'pdf', // Remove when using dynamic file
-      //     mediaName: file?.originalname || 'Resume Latest.pdf', // Remove ? when using dynamic file
-      //   }
-      // );
-      // logger.info(`Record created with ID: ${record.id}`);
 
       return {
         stitchedText: stitchedText,
@@ -63,22 +51,5 @@ export class SummarizationService {
 
     }
   }
-
-  // async processURL(detailLevel: DetailLevel, text: string): Promise<SummarizationResponse> {
-  //   try {
-  //     logger.info(`Processing request to summarize URL for detailLevel: ${detailLevel}`);
-  //     // Step 1: Extract text from URL
-  //     const extractedText = await this.llmService.extractTextFromURL(text);
-  //     // Step 2: Stitch text from blocks
-  //     const stitchedText = await this.llmService.stitchTextFromBlocks(extractedText);
-
-  //     return {
-  //       stitchedText: stitchedText,
-  //     };
-  //   } catch (error) {
-  //     console.error('Error processing URL:', error);
-  //     throw error;
-  //   }
-  // }
   
 }

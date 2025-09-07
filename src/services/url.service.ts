@@ -148,16 +148,16 @@ export class URLProcessingService {
       }
 
       // Optional: Split text into manageable chunks if needed
-      const textSplitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 10000,
-        chunkOverlap: 200,
-      });
+      // const textSplitter = new RecursiveCharacterTextSplitter({
+      //   chunkSize: 10000,
+      //   chunkOverlap: 200,
+      // });
 
-      const textChunks = await textSplitter.splitText(combinedText);
-      const finalText = textChunks.join('\n\n');
+      // const textChunks = await textSplitter.splitText(combinedText);
+      // const finalText = textChunks.join('\n\n');
 
-      logger.info(`Scraped ${finalText.length} characters from website using LangChain`);
-      return finalText;
+      logger.info(`Scraped ${combinedText.length} characters from website using LangChain`);
+      return combinedText;
     } catch (error) {
       logger.error('Error scraping website with LangChain:', error);
       
@@ -229,3 +229,5 @@ export class URLProcessingService {
     return text;
   }
 }
+
+export const urlProcessingService = new URLProcessingService();

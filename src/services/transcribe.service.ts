@@ -1,6 +1,6 @@
 import { AWSAuth } from '../utils/awsAuth.js';
 import { TranscribeClient, StartTranscriptionJobCommand, GetTranscriptionJobCommand, MediaFormat } from '@aws-sdk/client-transcribe';
-import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { redisClient, RedisClient } from '../utils/redisClient.js';
 import logger from '../utils/logger.js';
 import { config } from '../utils/config.js';
@@ -78,9 +78,14 @@ export class TranscribeService {
   async getTranscribeJobStatus(jobName: string): Promise<string> {
     const getCommand = new GetTranscriptionJobCommand({ TranscriptionJobName: jobName });
     let response;
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutes max wait time
     
     do {
       response = await this.transcribeClient.send(getCommand);
+      attempts++;
+      
+      logger.info(`Transcribe job ${jobName} status: ${response.TranscriptionJob?.TranscriptionJobStatus} (attempt ${attempts})`);
       
       if (response.TranscriptionJob?.TranscriptionJobStatus === 'COMPLETED') {
         const transcriptUri = response.TranscriptionJob.Transcript?.TranscriptFileUri;
@@ -89,26 +94,104 @@ export class TranscribeService {
           throw new Error('No transcript URI found');
         }
         
-        return await this.downloadTranscript(transcriptUri);
+        logger.info(`Transcript completed, downloading from: ${transcriptUri}`);
+        return await this.downloadTranscriptFromS3(transcriptUri, jobName);
       } else if (response.TranscriptionJob?.TranscriptionJobStatus === 'FAILED') {
-        throw new Error('Transcribe job failed');
+        const failureReason = response.TranscriptionJob?.FailureReason;
+        logger.error(`Transcribe job failed: ${failureReason}`);
+        throw new Error(`Transcribe job failed: ${failureReason || 'Unknown reason'}`);
+      }
+      
+      if (attempts >= maxAttempts) {
+        throw new Error(`Transcribe job timeout after ${maxAttempts} attempts`);
       }
       
       await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
     } while (response.TranscriptionJob?.TranscriptionJobStatus === 'IN_PROGRESS');
     
-    throw new Error('Transcribe job timeout');
+    throw new Error('Transcribe job ended with unknown status');
   }
 
-  private async downloadTranscript(transcriptUri: string): Promise<string> {
+  private async downloadTranscriptFromS3(transcriptUri: string, jobName: string): Promise<string> {
     try {
-      const response = await fetch(transcriptUri);
-      const transcriptJson = await response.json();
+      logger.info(`Downloading transcript from S3 using AWS SDK for job: ${jobName}`);
       
-      return transcriptJson.results.transcripts[0].transcript;
+      // Extract the S3 key from the URI
+      const s3Key = `${jobName}.json`;
+      
+      const getObjectCommand = new GetObjectCommand({
+        Bucket: config.AWS_S3_BUCKET,
+        Key: s3Key,
+      });
+
+      const response = await this.s3Client.send(getObjectCommand);
+      
+      if (!response.Body) {
+        throw new Error('Empty response body from S3');
+      }
+
+      // Convert stream to string
+      const responseText = await this.streamToString(response.Body);
+      logger.info(`Transcript response length: ${responseText.length} characters`);
+      
+      // Log first 200 characters to debug
+      logger.info(`Transcript response preview: ${responseText.substring(0, 200)}`);
+      
+      // Parse JSON transcript
+      const transcriptJson = JSON.parse(responseText);
+      
+      if (!transcriptJson.results || !transcriptJson.results.transcripts || transcriptJson.results.transcripts.length === 0) {
+        throw new Error('Invalid transcript JSON structure');
+      }
+      
+      const transcript = transcriptJson.results.transcripts[0].transcript;
+      logger.info(`Successfully extracted transcript: ${transcript.length} characters`);
+      
+      // Clean up the transcript file from S3 (optional)
+      try {
+        const deleteCommand = new GetObjectCommand({
+          Bucket: config.AWS_S3_BUCKET,
+          Key: s3Key,
+        });
+        // Note: You can uncomment the next line if you want to delete the transcript file after processing
+        await this.s3Client.send(new DeleteObjectCommand({ Bucket: config.AWS_S3_BUCKET, Key: s3Key }));
+        logger.info(`Transcript file cleanup completed for: ${s3Key}`);
+      } catch (cleanupError) {
+        logger.warn(`Failed to cleanup transcript file ${s3Key}:`, cleanupError);
+      }
+      
+      return transcript;
     } catch (error) {
-      logger.error('Error downloading transcript:', error);
+      logger.error('Error downloading transcript from S3:', error);
       throw new AppError('Error downloading transcript', 500);
+    }
+  }
+
+  private async streamToString(stream: any): Promise<string> {
+    const chunks: Buffer[] = [];
+    
+    if (stream.getReader) {
+      // Handle ReadableStream (browser environment)
+      const reader = stream.getReader();
+      const decoder = new TextDecoder();
+      let result = '';
+      
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          result += decoder.decode(value, { stream: true });
+        }
+        return result;
+      } finally {
+        reader.releaseLock();
+      }
+    } else {
+      // Handle Node.js Readable stream
+      for await (const chunk of stream) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+      return Buffer.concat(chunks).toString('utf-8');
     }
   }
 }
